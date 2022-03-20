@@ -53,3 +53,11 @@ add_executable(${PROJECT_NAME} ${deps} ${sources})
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 target_link_libraries(${PROJECT_NAME} PUBLIC CURL::libcurl gumbo::gumbo sqlite3::sqlite3 drogon)
+
+# indexer
+
+file (GLOB index_sources indexer/*.cpp nonbiri/manager.cpp nonbiri/models/*.cpp nonbiri/utils/*.cpp)
+add_executable(index ${deps} ${index_sources})
+
+target_compile_features(index PRIVATE cxx_std_17)
+target_link_libraries(index PUBLIC CURL::libcurl gumbo::gumbo jsoncpp_lib_static)

@@ -52,4 +52,6 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: linux
-          path: build/linux/nonbiri-dev
+          path: |
+            build/linux/nonbiri-dev
+            build/linux/indexer
