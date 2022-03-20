@@ -21,13 +21,12 @@ public:
   static const std::vector<std::string> getExtensions(const std::string &path);
 
 public:
-  Manager();
+  Manager(const std::string &dir = "extensions");
   ~Manager();
   void reset();
 
 public:
   std::shared_ptr<CExtension> getExtension(const std::string &name) const;
-  std::map<std::string, std::shared_ptr<CExtension>> getExtensions();
   std::shared_ptr<CExtension> loadExtension(const std::string &path);
 
 public:

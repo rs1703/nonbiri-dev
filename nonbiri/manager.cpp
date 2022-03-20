@@ -58,7 +58,22 @@ vector<shared_ptr<CChapter>> normalizeChapterEntries(shared_ptr<CExtension> ext,
   return entries;
 }
 
-Manager::Manager() {}
+Manager::Manager(const string &path)
+{
+  auto paths = getExtensions(path);
+  for (auto path : paths) {
+    auto name = getFilename(path);
+    try {
+      cout << "Loading " << name;
+      auto extension = loadExtension(path);
+      cout << " - OK (" << extension->name << ")" << endl;
+    } catch (std::exception &e) {
+      cout << endl << "Failed to load " << name << endl;
+      cout << e.what() << endl;
+    }
+  }
+}
+
 Manager::~Manager()
 {
   cout << "Manager::~Manager()" << endl;
@@ -88,6 +103,7 @@ shared_ptr<CExtension> Manager::loadExtension(const string &path)
   if (extensions.find(ext->name) != extensions.end())
     throw runtime_error("Extension already loaded");
 
+  ext->libName = getFilename(path);
   extensions.insert(make_pair(ext->name, ext));
   return ext;
 }

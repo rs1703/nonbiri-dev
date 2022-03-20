@@ -10,9 +10,11 @@ class CExtension : public Extension
   void *handle = NULL;
 
 public:
-  std::string id;
+  int id;
   bool isInstalled;
   bool isEnabled;
+
+  std::string libName;
 
 public:
   CExtension(const Extension &extension);

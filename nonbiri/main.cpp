@@ -34,24 +34,6 @@ Options parseOptions(int argc, char *argv[])
   return options;
 }
 
-void initManager()
-{
-  gManager = new Manager();
-
-  auto paths = Manager::getExtensions("extensions");
-  for (auto path : paths) {
-    auto name = getFilename(path);
-    try {
-      cout << "Loading " << name;
-      auto extension = gManager->loadExtension(path);
-      cout << " - OK (" << extension->name << ")" << endl;
-    } catch (std::exception &e) {
-      cout << endl << "Failed to load " << name << endl;
-      cout << e.what() << endl;
-    }
-  }
-}
-
 int main(int argc, char *argv[])
 {
   cout << "Initializing database..." << endl;
@@ -62,7 +44,7 @@ int main(int argc, char *argv[])
   }
 
   auto options = parseOptions(argc, argv);
-  initManager();
+  gManager = new Manager();
 
   drogon::app()
       .setLogPath("./")
