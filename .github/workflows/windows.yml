@@ -40,4 +40,4 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: windows
-          path: build/windows/Release/nonbiri.exe
+          path: build/windows/Release/nonbiri-dev.exe
