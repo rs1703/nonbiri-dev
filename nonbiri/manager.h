@@ -3,6 +3,8 @@
 
 #include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <nonbiri/models/extension.h>
 #include <nonbiri/models/manga.h>
@@ -19,6 +21,7 @@ public:
 
 public:
   static const std::vector<std::string> getExtensions(const std::string &path);
+  static const std::map<std::string, ExtensionInfo> fetchExtensions();
 
 public:
   Manager(const std::string &dir = "extensions");
@@ -27,7 +30,10 @@ public:
 
 public:
   std::shared_ptr<CExtension> getExtension(const std::string &name) const;
-  std::shared_ptr<CExtension> loadExtension(const std::string &path);
+  std::shared_ptr<CExtension> loadExtension(const std::string &name);
+  void unloadExtension(const std::string &name);
+
+  std::shared_ptr<CExtension> downloadExtension(const std::string &name, bool rewrite = false);
 
 public:
   void setCurrentExtension(std::shared_ptr<CExtension> extension);

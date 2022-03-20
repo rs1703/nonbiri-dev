@@ -17,13 +17,27 @@ public:
   std::string libName;
 
 public:
-  CExtension(const Extension &extension);
-  ~CExtension();
+  void *getHandle()
+  {
+    return handle;
+  }
 
   void setHandle(void *handle)
   {
     this->handle = handle;
   }
+
+public:
+  CExtension(const Extension &extension);
+  ~CExtension();
+};
+
+struct ExtensionInfo
+{
+  std::string baseUrl;
+  std::string name;
+  std::string language;
+  std::string version;
 };
 
 #endif  // NONBIRI_MODELS_EXTENSION_H_

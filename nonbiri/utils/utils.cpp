@@ -3,7 +3,7 @@
 #else
 #  include <dlfcn.h>
 #endif
-
+#include <curl/curl.h>
 #include <nonbiri/utils/utils.h>
 
 void *utils::loadLibrary(const char *path)
@@ -37,4 +37,32 @@ void utils::freeLibrary(void *handle)
 #else
   dlclose(handle);
 #endif
+}
+
+int http::download(const char *url, const char *path)
+{
+  CURL *curl = curl_easy_init();
+  if (curl == nullptr)
+    return -1;
+
+  FILE *fp = fopen(path, "wb");
+  if (fp == nullptr) {
+    curl_easy_cleanup(curl);
+    return -1;
+  }
+
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+
+  auto code = curl_easy_perform(curl);
+  long httpCode = -1;
+
+  if (code == CURLE_OK)
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+
+  curl_easy_cleanup(curl);
+  fclose(fp);
+
+  return httpCode;
 }

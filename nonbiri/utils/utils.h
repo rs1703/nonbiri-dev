@@ -8,4 +8,9 @@ void *getSymbol(void *handle, const char *symbol);
 void freeLibrary(void *handle);
 }  // namespace utils
 
+namespace http
+{
+int download(const char *url, const char *path);
+}  // namespace http
+
 #endif  // NONBIRI_UTILS_UTILS_H
