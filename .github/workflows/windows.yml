@@ -1,0 +1,43 @@
+name: Windows
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  check:
+    if: "github.repository == 'rs1703/nonbiri-dev'"
+    name: Cancel previous actions
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+          all_but_latest: true
+
+  build:
+    if: "github.repository == 'rs1703/nonbiri-dev'"
+    name: Build
+    runs-on: windows-2019
+    needs: check
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: actions/cache@v2
+        with:
+          path: C:/.hunter
+          key: cache
+          restore-keys: cache
+
+      - uses: lukka/get-cmake@latest
+      - run: ./build.bat
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: windows
+          path: build/windows/Release/nonbiri.exe
