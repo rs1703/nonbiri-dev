@@ -42,4 +42,4 @@ jobs:
           name: windows
           path: |
             build/windows/Release/nonbiri-dev.exe
-            build/windows/Release/indexer.exe
+            build/windows/Release/index.exe
