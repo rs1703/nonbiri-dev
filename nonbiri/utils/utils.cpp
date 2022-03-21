@@ -55,6 +55,9 @@ int http::download(const char *url, const char *path)
   if (curl == nullptr)
     return -1;
 
+  curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+  curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+
   FILE *fp = fopen(path, "wb");
   if (fp == nullptr) {
     curl_easy_cleanup(curl);
