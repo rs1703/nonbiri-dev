@@ -15,6 +15,11 @@ void *utils::loadLibrary(const char *path)
 #endif
 }
 
+void *utils::loadLibrary(const std::string &path)
+{
+  return loadLibrary(path.c_str());
+}
+
 void *utils::getSymbol(void *handle, const char *symbol)
 {
   if (handle == nullptr)
@@ -25,6 +30,11 @@ void *utils::getSymbol(void *handle, const char *symbol)
 #else
   return dlsym(handle, symbol);
 #endif
+}
+
+void *utils::getSymbol(void *handle, const std::string &symbol)
+{
+  return getSymbol(handle, symbol.c_str());
 }
 
 void utils::freeLibrary(void *handle)
@@ -65,4 +75,9 @@ int http::download(const char *url, const char *path)
   fclose(fp);
 
   return httpCode;
+}
+
+int http::download(const std::string &url, const std::string &path)
+{
+  return download(url.c_str(), path.c_str());
 }

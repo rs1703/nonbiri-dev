@@ -99,7 +99,7 @@ static const string extensionsDir {"extensions"};
 
 shared_ptr<CExtension> Manager::loadExtension(const string &name)
 {
-  string path {fs::path(extensionsDir) / fs::path(name)};
+  auto path = fs::path(extensionsDir) / name;
   if (!fs::exists(path))
     throw runtime_error("Extension not found");
 
@@ -107,7 +107,7 @@ shared_ptr<CExtension> Manager::loadExtension(const string &name)
     throw runtime_error("Extension already loaded");
 
   cout << "Loading " << name << "..." << endl;
-  auto handle = utils::loadLibrary(path.c_str());
+  auto handle = utils::loadLibrary(path.string());
   if (handle == nullptr)
     throw runtime_error("Unable to load extension");
 
@@ -141,7 +141,7 @@ shared_ptr<CExtension> Manager::downloadExtension(const string &name, bool rewri
   if (!fs::exists(extensionsDir))
     fs::create_directory(extensionsDir);
 
-  string outPath {fs::path(extensionsDir) / fs::path(name)};
+  auto outPath = fs::path(extensionsDir) / name;
   if (fs::exists(outPath)) {
     if (!rewrite) {
       auto ext = getExtension(name);
@@ -153,7 +153,7 @@ shared_ptr<CExtension> Manager::downloadExtension(const string &name, bool rewri
   }
 
   cout << "Downloading " << name << "..." << endl;
-  auto code = http::download(url.c_str(), outPath.c_str());
+  auto code = http::download(url, outPath.string());
   if (code != 200)
     throw runtime_error("Unable to download extension");
   return loadExtension(name);
@@ -447,10 +447,10 @@ const map<string, ExtensionInfo> Manager::fetchExtensions()
   for (auto &k : root.getMemberNames()) {
     auto v = root[k];
     result[k] = ExtensionInfo {
-        .baseUrl = v["baseUrl"].asString(),
-        .name = v["name"].asString(),
-        .language = v["language"].asString(),
-        .version = v["version"].asString(),
+        v["baseUrl"].asString(),
+        v["name"].asString(),
+        v["language"].asString(),
+        v["version"].asString(),
     };
   }
 
