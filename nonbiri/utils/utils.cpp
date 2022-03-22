@@ -9,7 +9,7 @@
 void *utils::loadLibrary(const std::string &path)
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  return LoadLibrary(path);
+  return LoadLibrary(path.c_str());
 #else
   return dlopen(path.c_str(), RTLD_LAZY);
 #endif
@@ -21,7 +21,7 @@ void *utils::getSymbol(void *handle, const std::string &symbol)
     return nullptr;
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  return GetProcAddress((HMODULE)handle, symbol);
+  return GetProcAddress((HMODULE)handle, symbol.c_str());
 #else
   return dlsym(handle, symbol.c_str());
 #endif
