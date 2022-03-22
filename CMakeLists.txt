@@ -25,8 +25,6 @@ find_package(gumbo CONFIG REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 find_package(sqlite3 CONFIG REQUIRED)
 
-add_subdirectory(libs/drogon)
-
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs
   ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev
@@ -52,7 +50,7 @@ file (GLOB sources nonbiri/*.cpp nonbiri/*/*.cpp)
 add_executable(${PROJECT_NAME} ${deps} ${sources})
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
-target_link_libraries(${PROJECT_NAME} PUBLIC CURL::libcurl gumbo::gumbo sqlite3::sqlite3 drogon)
+target_link_libraries(${PROJECT_NAME} PUBLIC CURL::libcurl gumbo::gumbo sqlite3::sqlite3 jsoncpp_lib_static)
 
 # indexer
 

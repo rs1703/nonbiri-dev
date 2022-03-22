@@ -1,6 +1,3 @@
 [submodule "libs/nonbiri-core-dev"]
 	path = libs/nonbiri-core-dev
 	url = https://github.com/rs1703/nonbiri-core-dev
-[submodule "libs/drogon"]
-	path = libs/drogon
-	url = https://github.com/drogonframework/drogon

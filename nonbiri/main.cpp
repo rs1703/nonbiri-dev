@@ -4,7 +4,6 @@
 #include <tuple>
 
 #include <core/utils/utils.h>
-#include <drogon/drogon.h>
 #include <nonbiri/database/database.h>
 #include <nonbiri/main.h>
 #include <nonbiri/manager.h>
@@ -46,15 +45,6 @@ int main(int argc, char *argv[])
   auto options = parseOptions(argc, argv);
   gManager = new Manager();
 
-  drogon::app()
-      .setLogPath("./")
-      .setLogLevel(trantor::Logger::kWarn)
-      .addListener("0.0.0.0", options.port)
-      .setThreadNum(0);
-
-  if (options.daemonize)
-    drogon::app().enableRunAsDaemon();
-
-  cout << "Running on port " << options.port << endl;
-  drogon::app().run();
+  // while (true) {
+  // }
 }
