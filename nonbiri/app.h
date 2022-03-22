@@ -17,6 +17,7 @@ public:
 
 private:
   void parseOptions(int argc, char *argv[]);
+  void dummy();
 };
 
 #endif

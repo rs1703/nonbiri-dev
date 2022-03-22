@@ -54,7 +54,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC CURL::libcurl gumbo::gumbo sqlite3:
 
 # indexer
 
-file (GLOB index_sources indexer/*.cpp nonbiri/manager/*.cpp nonbiri/models/*.cpp nonbiri/utils/*.cpp)
+file (GLOB index_sources indexer/*.cpp nonbiri/cache/*.cpp nonbiri/manager/*.cpp nonbiri/models/*.cpp nonbiri/utils/*.cpp)
 add_executable(index ${deps} ${index_sources})
 
 target_compile_features(index PRIVATE cxx_std_17)

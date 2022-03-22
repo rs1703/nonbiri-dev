@@ -4,19 +4,21 @@
 #include <memory>
 
 #include <core/models/models.h>
-#include <nonbiri/models/extension.h>
 
 class CManga;
 
 class CChapter : public Chapter
 {
-public:
   std::shared_ptr<CManga> manga;
 
 public:
   CChapter(const Chapter &chapter);
-  CChapter(const Chapter &chapter, CManga &manga);
+  CChapter(const CChapter &chapter);
+  CChapter(const CManga &manga, const Chapter &chapter);
   ~CChapter();
+
+  std::shared_ptr<CManga> getManga() const;
+  void setManga(const CManga &manga);
 };
 
 #endif  // NONBIRI_MODELS_CHAPTER_H_

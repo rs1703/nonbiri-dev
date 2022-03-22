@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 #include <tuple>
 #include <vector>
@@ -7,24 +8,26 @@
 #include <core/utils/utils.h>
 #include <json/json.h>
 #include <nonbiri/manager/manager.h>
-#include <nonbiri/models/chapter.h>
 #include <nonbiri/utils/utils.h>
 
 using std::cout;
 using std::endl;
 using std::exception;
+using std::lock_guard;
 using std::make_pair;
 using std::make_shared;
 using std::make_tuple;
 using std::map;
+using std::mutex;
 using std::runtime_error;
 using std::shared_ptr;
 using std::string;
+using std::time;
 using std::tuple;
 using std::vector;
 
 namespace fs = std::filesystem;
-typedef Extension *(*createPtr)(void);
+typedef CExtension *(*createPtr)(void);
 
 static const string dataBaseUrl {"https://raw.githubusercontent.com/rs1703/nonbiri-extensions-dev/releases"};
 
@@ -38,28 +41,9 @@ shared_ptr<CExtension> createExtension(void *handle)
   if (extension == nullptr)
     throw runtime_error("Unable to instantiate extension");
 
-  auto ext = make_shared<CExtension>(*extension);
+  auto ext = shared_ptr<CExtension>(extension);
   ext->setHandle(handle);
   return ext;
-}
-
-tuple<vector<shared_ptr<CManga>>, bool> normalizeMangaEntries(shared_ptr<CExtension> ext,
-                                                              tuple<vector<Manga *>, bool> &tuple)
-{
-  vector<shared_ptr<CManga>> entries;
-  for (auto entry : std::get<0>(tuple))
-    entries.push_back(make_shared<CManga>(*entry, *ext));
-  return make_tuple(entries, std::get<1>(tuple));
-}
-
-vector<shared_ptr<CChapter>> normalizeChapterEntries(shared_ptr<CExtension> ext,
-                                                     CManga &manga,
-                                                     vector<Chapter *> &chapters)
-{
-  vector<shared_ptr<CChapter>> entries;
-  for (auto entry : chapters)
-    entries.push_back(make_shared<CChapter>(*entry, manga));
-  return entries;
 }
 
 Manager::Manager(const string &dir) : extensionsDir(dir)
@@ -69,7 +53,7 @@ Manager::Manager(const string &dir) : extensionsDir(dir)
   for (auto path : paths) {
     try {
       loadExtension(path);
-    } catch (exception &e) {
+    } catch (const exception &e) {
       cout << e.what() << endl;
     }
   }
@@ -80,50 +64,68 @@ Manager::~Manager()
   cout << "Manager::~Manager()" << endl;
 }
 
-void Manager::reset()
+shared_ptr<CExtension> Manager::getExtension(const string &id)
 {
-  currentExtension = NULL;
-  currentQuery = "";
+  auto it = extensions.find(id);
+  if (it == extensions.end()) {
+    if (indexes.find(id) == indexes.end())
+      throw runtime_error("Extension not found");
+    else
+      throw runtime_error("Extension not loaded");
+  }
+  return it->second;
 }
 
 void Manager::loadExtension(const string &name)
 {
+  cout << "Loading " << name << "..." << endl;
   auto path = fs::path(extensionsDir) / name;
   if (!fs::exists(path))
     throw runtime_error("Extension not found");
-
-  if (extensions.find(name) != extensions.end())
-    throw runtime_error("Extension already loaded");
-
-  cout << "Loading " << name << "..." << endl;
 
   auto handle = utils::loadLibrary(path.string());
   if (handle == nullptr)
     throw runtime_error("Unable to load extension");
 
   auto ext = createExtension(handle);
-  extensions.insert(make_pair(name, ext));
+  auto id = ext->id;
 
-  cout << "Loaded " << name << endl;
+  if (extensions.find(id) != extensions.end())
+    throw runtime_error("Extension already loaded");
+
+  extensions.insert(make_pair(id, ext));
+  cout << "Loaded " << id << endl;
 }
 
-void Manager::unloadExtension(const string &name)
+void Manager::unloadExtension(const string &id)
 {
-  auto it = extensions.find(name);
+  cout << "Unloading " << id << "..." << endl;
+  auto it = extensions.find(id);
   if (it == extensions.end())
     throw runtime_error("Extension not loaded");
 
-  cout << "Unloading " << name << "..." << endl;
   utils::freeLibrary(it->second->getHandle());
   extensions.erase(it);
-  cout << "Unloaded " << name << endl;
+
+  cout << "Unloaded " << id << endl;
 }
 
-void Manager::downloadExtension(const string &name, bool update)
+void Manager::downloadExtension(const string &id, bool update)
 {
+  static mutex mtx;
+  lock_guard<mutex> lck(mtx);
+
+  if (indexes.find(id) == indexes.end())
+    throw runtime_error("Extension not found");
+
+  if (!update && extensions.find(id) != extensions.end())
+    throw runtime_error("Extension already loaded");
+
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  string name {id + ".dll"};
   string url {dataBaseUrl + "/windows/" + name};
 #else
+  string name {"lib" + id + ".so"};
   string url {dataBaseUrl + "/linux/" + name};
 #endif
   int code;
@@ -137,7 +139,7 @@ void Manager::downloadExtension(const string &name, bool update)
       goto end;
 
     try {
-      unloadExtension(name);
+      unloadExtension(id);
     } catch (...) {
     }
 
@@ -153,44 +155,23 @@ end:
   return loadExtension(name);
 }
 
-void Manager::updateExtension(const string &name)
+void Manager::updateExtension(const string &id)
 {
-  downloadExtension(name, true);
-}
-
-void Manager::setCurrentExtension(shared_ptr<CExtension> ext)
-{
-  if (currentExtension == ext)
-    return;
-
-  reset();
-  currentExtension = ext;
-}
-
-void Manager::setCurrentQuery(const string &query)
-{
-  currentQuery = query;
-  currentPage = 1;
-  hasNext = true;
-}
-
-vector<shared_ptr<CManga>> Manager::getLatests()
-{
-  if (currentExtension == nullptr)
-    throw runtime_error("Extension not set");
-
-  if (!hasNext)
-    return {};
-
-  auto [entries, hasNext] = getLatests(currentExtension, currentPage);
-  this->hasNext = hasNext;
-  currentPage++;
-
-  return entries;
+  downloadExtension(id, true);
 }
 
 void Manager::updateExtensionIndexes()
 {
+  static mutex mtx;
+  lock_guard<mutex> lck(mtx);
+
+  std::time_t now {std::time(nullptr)};
+  double minutes {std::difftime(now, indexLastUpdate) / 60.0};
+
+  if (minutes > 0 && minutes <= 10.0)
+    return;
+  indexLastUpdate = now;
+
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   static const string url {dataBaseUrl + "/windows.json"};
 #else
@@ -219,43 +200,53 @@ void Manager::updateExtensionIndexes()
   }
 }
 
-vector<shared_ptr<CManga>> Manager::searchManga(const string &query)
+void Manager::checkExtensions()
 {
-  if (currentExtension == nullptr)
-    throw runtime_error("Extension not set");
+  static bool isChecking {false};
+  if (isChecking)
+    return;
 
-  if (query != currentQuery)
-    setCurrentQuery(query);
+  isChecking = true;
+  try {
+    updateExtensionIndexes();
+  } catch (...) {
+  }
 
-  if (!hasNext)
-    return {};
+  for (auto &[id, info] : indexes) {
+    auto it = extensions.find(id);
+    if (it == extensions.end())
+      continue;
 
-  auto [entries, hasNext] = searchManga(currentExtension, currentPage, query);
-  this->hasNext = hasNext;
-  currentPage++;
-
-  return entries;
+    auto ext = it->second;
+    if (ext->version != ext->version)
+      ext->setHasUpdate(true);
+  }
+  isChecking = false;
 }
 
-shared_ptr<CManga> Manager::getManga(const string &url)
+tuple<vector<shared_ptr<CManga>>, bool> Manager::getLatests(const string &id, int page)
 {
-  if (currentExtension == nullptr)
-    throw runtime_error("Extension not set");
-  return getManga(currentExtension, url);
+  return getExtension(id)->getLatests(page);
 }
 
-vector<shared_ptr<CChapter>> Manager::getChapters(CManga &manga)
+tuple<vector<shared_ptr<CManga>>, bool> Manager::searchManga(const string &id, int page, const string &query)
 {
-  if (currentExtension == nullptr)
-    throw runtime_error("Extension not set");
-  return getChapters(currentExtension, manga);
+  return getExtension(id)->searchManga(page, query);
 }
 
-vector<string> Manager::getPages(Chapter &chapter)
+shared_ptr<CManga> Manager::getManga(const string &id, const string &path)
 {
-  if (currentExtension == nullptr)
-    throw runtime_error("Extension not set");
-  return getPages(currentExtension, chapter);
+  return getExtension(id)->getManga(path);
+}
+
+vector<shared_ptr<CChapter>> Manager::getChapters(const string &id, CManga &manga)
+{
+  return getExtension(id)->getChapters(manga);
+}
+
+vector<string> Manager::getPages(const string &id, const CChapter &chapter)
+{
+  return getExtension(id)->getPages(chapter);
 }
 
 vector<string> Manager::getLocalExtensionPaths()
@@ -267,148 +258,4 @@ vector<string> Manager::getLocalExtensionPaths()
     if (dirEntry.is_regular_file())
       result.push_back(dirEntry.path().filename().string());
   return result;
-}
-
-tuple<vector<shared_ptr<CManga>>, bool> Manager::getLatests(shared_ptr<CExtension> ext, int page)
-{
-  auto res = ext->latestsRequest(page);
-  if (res.empty())
-    throw runtime_error("No results");
-
-  if (ext->useApi) {
-    auto result = ext->parseLatestEntries(res);
-    return normalizeMangaEntries(ext, result);
-  }
-
-  CHtml html {res};
-  try {
-    auto result = ext->parseLatestEntries(html);
-    return normalizeMangaEntries(ext, result);
-  } catch (...) {
-    // ignore
-  }
-
-  auto selector = ext->latestsSelector();
-  auto entries = html.select(selector);
-
-  vector<shared_ptr<CManga>> result;
-  for (auto &entry : entries) {
-    auto manga = ext->parseLatestEntry(*entry);
-    if (manga != nullptr)
-      result.push_back(make_shared<CManga>(*manga, *ext));
-  }
-
-  auto nextSelector = ext->latestsNextSelector();
-  bool hasNext = false;
-
-  if (!nextSelector.empty()) {
-    auto next = html.selectFirst(nextSelector);
-    if (next)
-      hasNext = next->isValid();
-  }
-  return make_tuple(result, hasNext);
-}
-
-tuple<vector<shared_ptr<CManga>>, bool> Manager::searchManga(shared_ptr<CExtension> ext, int page, const string &query)
-{
-  auto res = ext->searchMangaRequest(page, query);
-  if (res.empty())
-    throw runtime_error("No results");
-
-  if (ext->useApi) {
-    auto result = ext->parseSearchEntries(res);
-    return normalizeMangaEntries(ext, result);
-  }
-
-  CHtml html {res};
-  try {
-    auto result = ext->parseSearchEntries(html);
-    return normalizeMangaEntries(ext, result);
-  } catch (...) {
-    // ignore
-  }
-
-  auto selector = ext->searchMangaSelector();
-  auto entries = html.select(selector);
-  vector<shared_ptr<CManga>> result;
-
-  for (auto &entry : entries) {
-    auto manga = ext->parseSearchEntry(*entry);
-    if (manga != nullptr)
-      result.push_back(make_shared<CManga>(*manga, *ext));
-  }
-
-  auto nextSelector = ext->searchMangaNextSelector();
-  bool hasNext = false;
-
-  if (!nextSelector.empty()) {
-    auto next = html.selectFirst(nextSelector);
-    if (next)
-      hasNext = next->isValid();
-  }
-  return make_tuple(result, hasNext);
-}
-
-shared_ptr<CManga> Manager::getManga(shared_ptr<CExtension> ext, const string &url)
-{
-  auto res = http::get(url);
-  if (res.empty())
-    throw runtime_error("No results");
-
-  if (ext->useApi) {
-    auto manga = ext->parseManga(res);
-    if (manga == nullptr)
-      throw runtime_error("No results");
-    return make_shared<CManga>(*manga, *ext);
-  }
-
-  CHtml html {res};
-  auto manga = ext->parseManga(html);
-  if (manga == nullptr)
-    throw runtime_error("No results");
-  return make_shared<CManga>(*manga, *ext);
-}
-
-vector<shared_ptr<CChapter>> Manager::getChapters(shared_ptr<CExtension> ext, CManga &manga)
-{
-  auto res = ext->chaptersRequest(manga);
-  if (res.empty())
-    throw runtime_error("No results");
-
-  if (ext->useApi) {
-    auto result = ext->parseChapterEntries(manga, res);
-    return normalizeChapterEntries(ext, manga, result);
-  }
-
-  CHtml html {res};
-  try {
-    auto result = ext->parseChapterEntries(manga, html);
-    return normalizeChapterEntries(ext, manga, result);
-  } catch (...) {
-    // ignore
-  }
-
-  auto selector = ext->chaptersSelector();
-  auto entries = html.select(selector);
-  vector<shared_ptr<CChapter>> result;
-
-  for (auto &entry : entries) {
-    auto chapter = ext->parseChapterEntry(manga, *entry);
-    if (chapter != nullptr)
-      result.push_back(make_shared<CChapter>(*chapter, manga));
-  }
-  return result;
-}
-
-vector<string> Manager::getPages(shared_ptr<CExtension> ext, Chapter &chapter)
-{
-  auto res = ext->pagesRequest(chapter);
-  if (res.empty())
-    throw runtime_error("No results");
-
-  if (ext->useApi)
-    return ext->parsePages(chapter, res);
-
-  CHtml html {res};
-  return ext->parsePages(chapter, html);
 }
