@@ -2,7 +2,7 @@
 #include <string>
 
 #include <json/json.h>
-#include <nonbiri/manager.h>
+#include <nonbiri/manager/manager.h>
 
 int main()
 {

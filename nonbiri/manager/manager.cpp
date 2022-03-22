@@ -6,11 +6,9 @@
 
 #include <core/utils/utils.h>
 #include <json/json.h>
-#include <nonbiri/main.h>
-#include <nonbiri/manager.h>
+#include <nonbiri/manager/manager.h>
 #include <nonbiri/models/chapter.h>
 #include <nonbiri/utils/utils.h>
-#include <string.h>
 
 using std::cout;
 using std::endl;
@@ -66,11 +64,12 @@ vector<shared_ptr<CChapter>> normalizeChapterEntries(shared_ptr<CExtension> ext,
 
 Manager::Manager(const string &dir) : extensionsDir(dir)
 {
-  auto paths = getExtensions(extensionsDir);
+  cout << "Initializing manager..." << endl;
+  auto paths = getLocalExtensionPaths();
   for (auto path : paths) {
     try {
       loadExtension(path);
-    } catch (std::exception &e) {
+    } catch (exception &e) {
       cout << e.what() << endl;
     }
   }
@@ -84,18 +83,10 @@ Manager::~Manager()
 void Manager::reset()
 {
   currentExtension = NULL;
-  currentQuery = NULL;
+  currentQuery = "";
 }
 
-shared_ptr<CExtension> Manager::getExtension(const string &name) const
-{
-  auto it = extensions.find(name);
-  if (it == extensions.end())
-    return nullptr;
-  return it->second;
-}
-
-shared_ptr<CExtension> Manager::loadExtension(const string &name)
+void Manager::loadExtension(const string &name)
 {
   auto path = fs::path(extensionsDir) / name;
   if (!fs::exists(path))
@@ -105,14 +96,15 @@ shared_ptr<CExtension> Manager::loadExtension(const string &name)
     throw runtime_error("Extension already loaded");
 
   cout << "Loading " << name << "..." << endl;
+
   auto handle = utils::loadLibrary(path.string());
   if (handle == nullptr)
     throw runtime_error("Unable to load extension");
 
   auto ext = createExtension(handle);
   extensions.insert(make_pair(name, ext));
+
   cout << "Loaded " << name << endl;
-  return ext;
 }
 
 void Manager::unloadExtension(const string &name)
@@ -127,41 +119,43 @@ void Manager::unloadExtension(const string &name)
   cout << "Unloaded " << name << endl;
 }
 
-shared_ptr<CExtension> Manager::downloadExtension(const string &name, bool rewrite)
+void Manager::downloadExtension(const string &name, bool update)
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   string url {dataBaseUrl + "/windows/" + name};
 #else
   string url {dataBaseUrl + "/linux/" + name};
 #endif
+  int code;
 
   if (!fs::exists(extensionsDir))
     fs::create_directory(extensionsDir);
 
   auto outPath = fs::path(extensionsDir) / name;
   if (fs::exists(outPath)) {
-    if (!rewrite) {
-      auto ext = getExtension(name);
-      if (ext != nullptr)
-        return ext;
-      return loadExtension(name);
+    if (!update)
+      goto end;
+
+    try {
+      unloadExtension(name);
+    } catch (...) {
     }
+
     fs::remove(outPath);
   }
 
   cout << "Downloading " << name << "..." << endl;
-  auto code = http::download(url, outPath.string());
+  code = http::download(url, outPath.string());
   if (code != 200)
     throw runtime_error("Unable to download extension");
+
+end:
   return loadExtension(name);
 }
 
-tuple<vector<shared_ptr<CManga>>, bool> Manager::getLatests(const string &name, int page)
+void Manager::updateExtension(const string &name)
 {
-  auto ext = getExtension(name);
-  if (ext == nullptr)
-    throw runtime_error("Extension not loaded");
-  return getLatests(ext, page);
+  downloadExtension(name, true);
 }
 
 void Manager::setCurrentExtension(shared_ptr<CExtension> ext)
@@ -173,7 +167,7 @@ void Manager::setCurrentExtension(shared_ptr<CExtension> ext)
   currentExtension = ext;
 }
 
-void Manager::setCurrentQuery(const char *query)
+void Manager::setCurrentQuery(const string &query)
 {
   currentQuery = query;
   currentPage = 1;
@@ -195,12 +189,42 @@ vector<shared_ptr<CManga>> Manager::getLatests()
   return entries;
 }
 
-vector<shared_ptr<CManga>> Manager::searchManga(const char *query)
+void Manager::updateExtensionIndexes()
+{
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  static const string url {dataBaseUrl + "/windows.json"};
+#else
+  static const string url {dataBaseUrl + "/linux.json"};
+#endif
+
+  auto res = http::get(url);
+  if (res.empty())
+    throw runtime_error("No results");
+
+  Json::Value root;
+  Json::Reader reader;
+
+  if (!reader.parse(res, root))
+    throw runtime_error("Unable to parse extensions index: " + reader.getFormattedErrorMessages());
+
+  for (auto &k : root.getMemberNames()) {
+    auto v = root[k];
+    indexes[k] = ExtensionInfo {
+        v["id"].asString(),
+        v["baseUrl"].asString(),
+        v["name"].asString(),
+        v["language"].asString(),
+        v["version"].asString(),
+    };
+  }
+}
+
+vector<shared_ptr<CManga>> Manager::searchManga(const string &query)
 {
   if (currentExtension == nullptr)
     throw runtime_error("Extension not set");
 
-  if (strcmp(query, currentQuery) != 0)
+  if (query != currentQuery)
     setCurrentQuery(query);
 
   if (!hasNext)
@@ -232,6 +256,17 @@ vector<string> Manager::getPages(Chapter &chapter)
   if (currentExtension == nullptr)
     throw runtime_error("Extension not set");
   return getPages(currentExtension, chapter);
+}
+
+vector<string> Manager::getLocalExtensionPaths()
+{
+  if (!fs::exists(extensionsDir))
+    return {};
+  vector<string> result;
+  for (const auto &dirEntry : fs::recursive_directory_iterator(extensionsDir))
+    if (dirEntry.is_regular_file())
+      result.push_back(dirEntry.path().filename().string());
+  return result;
 }
 
 tuple<vector<shared_ptr<CManga>>, bool> Manager::getLatests(shared_ptr<CExtension> ext, int page)
@@ -274,15 +309,7 @@ tuple<vector<shared_ptr<CManga>>, bool> Manager::getLatests(shared_ptr<CExtensio
   return make_tuple(result, hasNext);
 }
 
-tuple<vector<shared_ptr<CManga>>, bool> Manager::searchManga(const string &name, int page, const char *query)
-{
-  auto ext = getExtension(name);
-  if (ext == nullptr)
-    throw runtime_error("Extension not loaded");
-  return searchManga(ext, page, query);
-}
-
-tuple<vector<shared_ptr<CManga>>, bool> Manager::searchManga(shared_ptr<CExtension> ext, int page, const char *query)
+tuple<vector<shared_ptr<CManga>>, bool> Manager::searchManga(shared_ptr<CExtension> ext, int page, const string &query)
 {
   auto res = ext->searchMangaRequest(page, query);
   if (res.empty())
@@ -322,14 +349,6 @@ tuple<vector<shared_ptr<CManga>>, bool> Manager::searchManga(shared_ptr<CExtensi
   return make_tuple(result, hasNext);
 }
 
-shared_ptr<CManga> Manager::getManga(const string &name, const string &url)
-{
-  auto ext = getExtension(name);
-  if (ext == nullptr)
-    throw runtime_error("Extension not loaded");
-  return getManga(ext, url);
-}
-
 shared_ptr<CManga> Manager::getManga(shared_ptr<CExtension> ext, const string &url)
 {
   auto res = http::get(url);
@@ -348,14 +367,6 @@ shared_ptr<CManga> Manager::getManga(shared_ptr<CExtension> ext, const string &u
   if (manga == nullptr)
     throw runtime_error("No results");
   return make_shared<CManga>(*manga, *ext);
-}
-
-vector<shared_ptr<CChapter>> Manager::getChapters(const string &name, CManga &manga)
-{
-  auto ext = getExtension(name);
-  if (ext == nullptr)
-    throw runtime_error("Extension not loaded");
-  return getChapters(ext, manga);
 }
 
 vector<shared_ptr<CChapter>> Manager::getChapters(shared_ptr<CExtension> ext, CManga &manga)
@@ -389,14 +400,6 @@ vector<shared_ptr<CChapter>> Manager::getChapters(shared_ptr<CExtension> ext, CM
   return result;
 }
 
-vector<string> Manager::getPages(const string &name, Chapter &chapter)
-{
-  auto ext = getExtension(name);
-  if (ext == nullptr)
-    throw runtime_error("Extension not loaded");
-  return getPages(ext, chapter);
-}
-
 vector<string> Manager::getPages(shared_ptr<CExtension> ext, Chapter &chapter)
 {
   auto res = ext->pagesRequest(chapter);
@@ -408,48 +411,4 @@ vector<string> Manager::getPages(shared_ptr<CExtension> ext, Chapter &chapter)
 
   CHtml html {res};
   return ext->parsePages(chapter, html);
-}
-
-const vector<string> Manager::getExtensions(const string &path)
-{
-  if (!fs::exists(path))
-    return {};
-
-  vector<string> result;
-  for (const auto &dirEntry : fs::recursive_directory_iterator(path))
-    if (dirEntry.is_regular_file())
-      result.push_back(dirEntry.path().filename().string());
-  return result;
-}
-
-const map<string, ExtensionInfo> Manager::fetchExtensions()
-{
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  static string url {dataBaseUrl + "/windows.json"};
-#else
-  static string url {dataBaseUrl + "/linux.json"};
-#endif
-
-  auto res = http::get(url);
-  if (res.empty())
-    throw runtime_error("No results");
-
-  Json::Value root;
-  Json::Reader reader;
-
-  if (!reader.parse(res, root))
-    throw runtime_error("Unable to parse extensions index: " + reader.getFormattedErrorMessages());
-
-  map<string, ExtensionInfo> result;
-  for (auto &k : root.getMemberNames()) {
-    auto v = root[k];
-    result[k] = ExtensionInfo {
-        v["baseUrl"].asString(),
-        v["name"].asString(),
-        v["language"].asString(),
-        v["version"].asString(),
-    };
-  }
-
-  return result;
 }

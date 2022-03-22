@@ -6,21 +6,16 @@
 #include <curl/curl.h>
 #include <nonbiri/utils/utils.h>
 
-void *utils::loadLibrary(const char *path)
+void *utils::loadLibrary(const std::string &path)
 {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   return LoadLibrary(path);
 #else
-  return dlopen(path, RTLD_LAZY);
+  return dlopen(path.c_str(), RTLD_LAZY);
 #endif
 }
 
-void *utils::loadLibrary(const std::string &path)
-{
-  return loadLibrary(path.c_str());
-}
-
-void *utils::getSymbol(void *handle, const char *symbol)
+void *utils::getSymbol(void *handle, const std::string &symbol)
 {
   if (handle == nullptr)
     return nullptr;
@@ -28,13 +23,8 @@ void *utils::getSymbol(void *handle, const char *symbol)
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
   return GetProcAddress((HMODULE)handle, symbol);
 #else
-  return dlsym(handle, symbol);
+  return dlsym(handle, symbol.c_str());
 #endif
-}
-
-void *utils::getSymbol(void *handle, const std::string &symbol)
-{
-  return getSymbol(handle, symbol.c_str());
 }
 
 void utils::freeLibrary(void *handle)
@@ -49,7 +39,7 @@ void utils::freeLibrary(void *handle)
 #endif
 }
 
-int http::download(const char *url, const char *path)
+int http::download(const std::string &url, const std::string &path)
 {
   CURL *curl = curl_easy_init();
   if (curl == nullptr)
@@ -58,13 +48,13 @@ int http::download(const char *url, const char *path)
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
 
-  FILE *fp = fopen(path, "wb");
+  FILE *fp = fopen(path.c_str(), "wb");
   if (fp == nullptr) {
     curl_easy_cleanup(curl);
     return -1;
   }
 
-  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
 
@@ -78,9 +68,4 @@ int http::download(const char *url, const char *path)
   fclose(fp);
 
   return httpCode;
-}
-
-int http::download(const std::string &url, const std::string &path)
-{
-  return download(url.c_str(), path.c_str());
 }
