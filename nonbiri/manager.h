@@ -11,6 +11,9 @@
 
 class Manager
 {
+private:
+  const std::string extensionsDir;
+
 public:
   std::map<std::string, std::shared_ptr<CExtension>> extensions;
 
@@ -20,7 +23,7 @@ public:
   bool hasNext = true;
 
 public:
-  static const std::vector<std::string> getExtensions(const std::string &path);
+  static const std::vector<std::string> getExtensions(const std::string &dir);
   static const std::map<std::string, ExtensionInfo> fetchExtensions();
 
 public:

@@ -64,9 +64,9 @@ vector<shared_ptr<CChapter>> normalizeChapterEntries(shared_ptr<CExtension> ext,
   return entries;
 }
 
-Manager::Manager(const string &path)
+Manager::Manager(const string &dir) : extensionsDir(dir)
 {
-  auto paths = getExtensions(path);
+  auto paths = getExtensions(extensionsDir);
   for (auto path : paths) {
     try {
       loadExtension(path);
@@ -95,8 +95,6 @@ shared_ptr<CExtension> Manager::getExtension(const string &name) const
   return it->second;
 }
 
-static const string extensionsDir {"extensions"};
-
 shared_ptr<CExtension> Manager::loadExtension(const string &name)
 {
   auto path = fs::path(extensionsDir) / name;
@@ -112,7 +110,6 @@ shared_ptr<CExtension> Manager::loadExtension(const string &name)
     throw runtime_error("Unable to load extension");
 
   auto ext = createExtension(handle);
-  ext->libName = name;
   extensions.insert(make_pair(name, ext));
   cout << "Loaded " << name << endl;
   return ext;
@@ -169,7 +166,7 @@ tuple<vector<shared_ptr<CManga>>, bool> Manager::getLatests(const string &name, 
 
 void Manager::setCurrentExtension(shared_ptr<CExtension> ext)
 {
-  if (currentExtension != nullptr && ext != nullptr && currentExtension->libName == ext->libName)
+  if (currentExtension == ext)
     return;
 
   reset();
