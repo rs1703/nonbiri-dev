@@ -12,13 +12,13 @@
 #include <nonbiri/utils.h>
 
 namespace fs = std::filesystem;
-typedef ExtensionPtr (*createPtr)(void);
+typedef const ExtensionPtr (*createPtr)(void);
 
 static const std::string dataBaseUrl {"https://raw.githubusercontent.com/rs1703/nonbiri-extensions-dev/releases"};
 
-inline const ExtensionPtr createExtension(void *handle)
+const ExtensionPtr createExtension(void *handle)
 {
-  const createPtr create = (createPtr)utils::getSymbol(handle, "create");
+  const auto create = (createPtr)utils::getSymbol(handle, "create");
   if (create == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'create' from extension");
 
@@ -88,16 +88,15 @@ ExtensionInfoMap &Manager::getIndexes()
     throw std::runtime_error("Extension already loaded"); \
   } \
 \
-  ExtensionInfo *info = getExtensionInfo(ext->id); \
+  const ExtensionInfo *info = getExtensionInfo(ext->id); \
   ext->hasUpdate = info != nullptr && ext->version != info->version; \
 \
   mExtensions.insert(std::make_pair(ext->id, ext)); \
-  std::cout << "Loaded " << ext->id << std::endl; \
-  utils::freeLibrary(handle);
+  std::cout << "Loaded " << ext->id << std::endl;
 
 void Manager::loadExtension(const std::string &name)
 {
-  std::unique_lock lock(mExtensionsMutex);
+  std::lock_guard lock(mExtensionsMutex);
   std::cout << "Loading " << name << "..." << std::endl;
 
   const fs::path path = fs::path(extensionsDir) / name;
@@ -109,7 +108,7 @@ void Manager::loadExtension(const std::string &name)
 
 void Manager::unloadExtension(const std::string &id)
 {
-  std::unique_lock lock(mExtensionsMutex);
+  std::lock_guard lock(mExtensionsMutex);
   std::cout << "Unloading " << id << "..." << std::endl;
 
   auto it = mExtensions.find(id);
@@ -122,7 +121,7 @@ void Manager::unloadExtension(const std::string &id)
 
 void Manager::downloadExtension(const std::string &id, bool update)
 {
-  std::unique_lock lock(mExtensionsMutex);
+  std::lock_guard lock(mExtensionsMutex);
   if (getExtensionInfo(id) == nullptr)
     throw std::runtime_error("Extension not found");
 
@@ -163,7 +162,7 @@ void Manager::downloadExtension(const std::string &id, bool update)
 
 void Manager::removeExtension(const std::string &id, fs::path path)
 {
-  std::unique_lock lock(mExtensionsMutex);
+  std::lock_guard lock(mExtensionsMutex);
 
   if (getExtensionInfo(id) == nullptr)
     throw std::runtime_error("Extension not found");
@@ -192,7 +191,7 @@ void Manager::updateExtension(const std::string &id)
 
 void Manager::updateExtensionIndexes()
 {
-  std::unique_lock lock(mIndexesMutex);
+  std::lock_guard lock(mIndexesMutex);
 
   const time_t now {time(nullptr)};
   const double minutes {difftime(now, indexLastUpdated) / 60.0};
@@ -217,7 +216,7 @@ void Manager::updateExtensionIndexes()
   if (!reader.parse(res, root))
     throw std::runtime_error("Unable to parse extensions index: " + reader.getFormattedErrorMessages());
 
-  for (const Json::String &key : root.getMemberNames()) {
+  for (const auto &key : root.getMemberNames()) {
     const Json::Value json = root[key];
     ExtensionInfo info {
       json["id"].asString(),
