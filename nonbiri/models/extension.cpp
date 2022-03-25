@@ -1,31 +1,20 @@
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 
 #include <core/utils/utils.h>
-#include <nonbiri/models/chapter.h>
 #include <nonbiri/models/extension.h>
-#include <nonbiri/models/manga.h>
-#include <nonbiri/utils/utils.h>
+#include <nonbiri/utils.h>
 
-using std::cout;
-using std::endl;
-using std::exception;
-using std::make_shared;
-using std::runtime_error;
-using std::shared_ptr;
-using std::string;
-using std::tuple;
-using std::vector;
+using ElementPtr = std::shared_ptr<CElement>;
 
-LRU<CManga> CExtension::mlru {2048};
+LRU<CManga> CExtension::mLRU {2048};
 
-CExtension::CExtension(const Extension &extension) : Extension(extension) {}
+CExtension::CExtension(const Extension &extension) : Extension {extension} {}
 
 CExtension::~CExtension()
 {
-  // std::cout << "CExtension::~CExtension()" << std::endl;
-  if (handle != nullptr)
-    utils::freeLibrary(handle);
+  std::cout << "CExtension::~CExtension()" << std::endl;
 }
 
 bool CExtension::operator==(const CExtension &extension)
@@ -38,123 +27,113 @@ bool CExtension::operator!=(const CExtension &extension)
   return id != extension.id;
 }
 
-void *CExtension::getHandle() const
+std::tuple<std::vector<MangaPtr>, bool> CExtension::getLatests(int page)
 {
-  return handle;
-}
-
-void CExtension::setHandle(void *handle)
-{
-  this->handle = handle;
-}
-
-bool CExtension::isHasUpdate() const
-{
-  return hasUpdate;
-}
-
-void CExtension::setHasUpdate(bool hasUpdate)
-{
-  this->hasUpdate = hasUpdate;
-}
-
-tuple<vector<shared_ptr<CManga>>, bool> CExtension::getLatests(int page)
-{
-  auto res = latestsRequest(page);
+  std::cout << 1 << std::endl;
+  const std::string res = latestsRequest(page);
+  std::cout << 11 << std::endl;
   if (res.empty())
-    throw runtime_error("No results");
+    throw std::runtime_error("No results");
 
+  std::cout << 2 << std::endl;
   if (useApi) {
-    auto result = parseLatestEntries(res);
+    const std::tuple<std::vector<Manga *>, bool> result = parseLatestEntries(res);
     return normalizeMangaEntries(result);
   }
 
+  std::cout << 3 << std::endl;
   CHtml html {res};
   try {
-    auto result = parseLatestEntries(html);
+    const std::tuple<std::vector<Manga *>, bool> result = parseLatestEntries(html);
     return normalizeMangaEntries(result);
   } catch (...) {
     // ignore
   }
 
-  auto selector = latestsSelector();
-  auto entries = html.select(selector);
+  std::cout << 4 << std::endl;
+  const std::string selector = latestsSelector();
+  std::cout << 5 << std::endl;
+  const std::vector<ElementPtr> entries = html.select(selector);
 
-  vector<shared_ptr<CManga>> result;
-  for (auto &entry : entries) {
-    auto manga = parseLatestEntry(*entry);
+  std::cout << 6 << std::endl;
+  std::vector<MangaPtr> result;
+  for (const ElementPtr &entry : entries) {
+    const Manga *manga = parseLatestEntry(*entry);
     if (manga != nullptr)
-      result.push_back(make_shared<CManga>(*this, *manga));
+      result.push_back(std::make_shared<CManga>(*manga));
   }
 
-  auto nextSelector = latestsNextSelector();
+  std::cout << 7 << std::endl;
+  const std::string nextSelector = latestsNextSelector();
   bool hasNext = false;
 
+  std::cout << 8 << std::endl;
   if (!nextSelector.empty()) {
-    auto next = html.selectFirst(nextSelector);
+    const ElementPtr next = html.selectFirst(nextSelector);
     if (next)
       hasNext = next->isValid();
   }
-  return make_tuple(result, hasNext);
+  std::cout << 9 << std::endl;
+  return std::make_tuple(result, hasNext);
 }
 
-tuple<vector<shared_ptr<CManga>>, bool> CExtension::searchManga(int page, const string &query)
+std::tuple<std::vector<MangaPtr>, bool> CExtension::searchManga(int page, const std::string &query)
 {
-  auto res = searchMangaRequest(page, query);
+  const std::string res = searchMangaRequest(page, query);
   if (res.empty())
-    throw runtime_error("No results");
+    throw std::runtime_error("No results");
 
   if (useApi) {
-    auto result = parseSearchEntries(res);
+    const std::tuple<std::vector<Manga *>, bool> result = parseSearchEntries(res);
     return normalizeMangaEntries(result);
   }
 
   CHtml html {res};
   try {
-    auto result = parseSearchEntries(html);
+    const std::tuple<std::vector<Manga *>, bool> result = parseSearchEntries(html);
     return normalizeMangaEntries(result);
   } catch (...) {
     // ignore
   }
 
-  auto selector = searchMangaSelector();
-  auto entries = html.select(selector);
-  vector<shared_ptr<CManga>> result;
+  const std::string selector = searchMangaSelector();
+  const std::vector<ElementPtr> entries = html.select(selector);
+  std::vector<MangaPtr> result;
 
-  for (auto &entry : entries) {
-    auto manga = parseSearchEntry(*entry);
+  for (const ElementPtr &entry : entries) {
+    const Manga *manga = parseSearchEntry(*entry);
     if (manga != nullptr)
-      result.push_back(make_shared<CManga>(*this, *manga));
+      result.push_back(std::make_shared<CManga>(*manga));
   }
 
-  auto nextSelector = searchMangaNextSelector();
+  const std::string nextSelector = searchMangaNextSelector();
   bool hasNext = false;
 
   if (!nextSelector.empty()) {
-    auto next = html.selectFirst(nextSelector);
+    const ElementPtr next = html.selectFirst(nextSelector);
     if (next)
       hasNext = next->isValid();
   }
-  return make_tuple(result, hasNext);
+  return std::make_tuple(result, hasNext);
 }
 
-shared_ptr<CManga> CExtension::getManga(const string &path, bool update)
+MangaPtr CExtension::getManga(const std::string &path, bool update)
 {
-  string strippedPath {stripDomain(path)};
-  string cacheKey {id + strippedPath};
+  std::string strippedPath {stripDomain(path)};
+  std::string cacheKey {id + strippedPath};
 
   if (!update) {
-    auto cache = mlru.get(cacheKey);
+    const MangaPtr cache = mLRU.get(cacheKey);
     if (cache != nullptr) {
-      cout << "Cache hit for " << strippedPath << endl;
+      std::cout << "Cache hit for " << strippedPath << std::endl;
       return cache;
     }
   }
 
-  string uri {baseUrl + strippedPath};
-  auto res = http::get(uri);
+  const std::string uri {baseUrl + strippedPath};
+  const std::string res = http::get(uri);
   if (res.empty())
-    throw runtime_error("No results");
+    throw std::runtime_error("No results");
 
   Manga *result;
   if (useApi) {
@@ -165,59 +144,56 @@ shared_ptr<CManga> CExtension::getManga(const string &path, bool update)
   }
 
   if (result == nullptr)
-    throw runtime_error("No results");
+    throw std::runtime_error("No results");
 
-  auto manga = make_shared<CManga>(*this, *result);
-  mlru.set(cacheKey, manga);
+  const MangaPtr manga = std::make_shared<CManga>(*result);
+  mLRU.set(cacheKey, manga);
 
   return manga;
 }
 
-vector<shared_ptr<CChapter>> CExtension::getChapters(CManga &manga)
+std::vector<ChapterPtr> CExtension::getChapters(CManga &manga)
 {
-  auto res = chaptersRequest(manga);
+  const std::string res = chaptersRequest(manga);
   if (res.empty())
-    throw runtime_error("No results");
+    throw std::runtime_error("No results");
 
   if (useApi) {
-    auto result = parseChapterEntries(manga, res);
-    return normalizeChapterEntries(manga, result);
+    const std::vector<Chapter *> result = parseChapterEntries(manga, res);
+    return normalizeChapterEntries(result);
   }
 
   CHtml html {res};
   try {
-    auto result = parseChapterEntries(manga, html);
-    return normalizeChapterEntries(manga, result);
+    const std::vector<Chapter *> result = parseChapterEntries(manga, html);
+    return normalizeChapterEntries(result);
   } catch (...) {
     // ignore
   }
 
-  auto selector = chaptersSelector();
-  auto elements = html.select(selector);
-  vector<shared_ptr<CChapter>> result;
+  const std::string selector = chaptersSelector();
+  const std::vector<ElementPtr> elements = html.select(selector);
+  std::vector<ChapterPtr> result;
 
-  for (auto &element : elements) {
-    auto entry = parseChapterEntry(manga, *element);
-    if (entry != nullptr) {
-      auto chapter = make_shared<CChapter>(manga, *entry);
-      manga.addChapter(chapter->url, *chapter);
-      result.push_back(chapter);
-    }
+  for (const ElementPtr &element : elements) {
+    const Chapter *entry = parseChapterEntry(manga, *element);
+    if (entry != nullptr)
+      result.push_back(std::make_shared<CChapter>(*entry));
   }
   return result;
 }
 
-vector<shared_ptr<CChapter>> CExtension::getChapters(const string &path)
+std::vector<ChapterPtr> CExtension::getChapters(const std::string &path)
 {
-  auto manga = getManga(path);
+  const MangaPtr manga = getManga(path);
   return getChapters(*manga);
 }
 
-vector<string> CExtension::getPages(const CChapter &chapter)
+std::vector<std::string> CExtension::getPages(const CChapter &chapter)
 {
-  auto res = pagesRequest(chapter);
+  const std::string res = pagesRequest(chapter);
   if (res.empty())
-    throw runtime_error("No results");
+    throw std::runtime_error("No results");
 
   if (useApi)
     return parsePages(chapter, res);
@@ -226,21 +202,19 @@ vector<string> CExtension::getPages(const CChapter &chapter)
   return parsePages(chapter, html);
 }
 
-tuple<vector<shared_ptr<CManga>>, bool> CExtension::normalizeMangaEntries(const tuple<vector<Manga *>, bool> &result)
+std::tuple<std::vector<MangaPtr>, bool> CExtension::normalizeMangaEntries(
+  const std::tuple<std::vector<Manga *>, bool> &result)
 {
-  vector<shared_ptr<CManga>> entries;
-  for (auto entry : std::get<0>(result))
-    entries.push_back(make_shared<CManga>(*this, *entry));
-  return make_tuple(entries, std::get<1>(result));
+  std::vector<MangaPtr> entries;
+  for (const Manga *entry : std::get<0>(result))
+    entries.push_back(std::make_shared<CManga>(*entry));
+  return std::make_tuple(entries, std::get<1>(result));
 }
 
-vector<shared_ptr<CChapter>> CExtension::normalizeChapterEntries(CManga &manga, const vector<Chapter *> &result)
+std::vector<ChapterPtr> CExtension::normalizeChapterEntries(const std::vector<Chapter *> &result)
 {
-  vector<shared_ptr<CChapter>> entries;
-  for (auto entry : result) {
-    auto chapter = make_shared<CChapter>(manga, *entry);
-    manga.addChapter(chapter->url, *chapter);
-    entries.push_back(chapter);
-  }
+  std::vector<ChapterPtr> entries;
+  for (const Chapter *entry : result)
+    entries.push_back(std::make_shared<CChapter>(*entry));
   return entries;
 }

@@ -4,7 +4,7 @@
 #  include <dlfcn.h>
 #endif
 #include <curl/curl.h>
-#include <nonbiri/utils/utils.h>
+#include <nonbiri/utils.h>
 
 void *utils::loadLibrary(const std::string &path)
 {
@@ -58,7 +58,7 @@ int http::download(const std::string &url, const std::string &path)
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
 
-  auto code = curl_easy_perform(curl);
+  const CURLcode code = curl_easy_perform(curl);
   long httpCode = -1;
 
   if (code == CURLE_OK)

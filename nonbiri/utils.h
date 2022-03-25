@@ -1,5 +1,5 @@
-#ifndef NONBIRI_UTILS_UTILS_H
-#define NONBIRI_UTILS_UTILS_H
+#ifndef NONBIRI_UTILS_H_
+#define NONBIRI_UTILS_H_
 
 #include <string>
 
@@ -15,4 +15,4 @@ namespace http
 int download(const std::string &url, const std::string &path);
 }  // namespace http
 
-#endif  // NONBIRI_UTILS_UTILS_H
+#endif  // NONBIRI_UTILS_H_

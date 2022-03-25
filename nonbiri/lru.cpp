@@ -1,17 +1,14 @@
-#include <nonbiri/cache/lru.h>
+#include <mutex>
+
+#include <nonbiri/lru.h>
 #include <nonbiri/models/chapter.h>
 #include <nonbiri/models/extension.h>
 #include <nonbiri/models/manga.h>
 
-using std::lock_guard;
-using std::mutex;
-using std::shared_ptr;
-using std::string;
-
 template class LRU<CManga>;
 
 template<class T>
-LRU<T>::LRU(unsigned int maxSize) : maxSize(maxSize)
+LRU<T>::LRU(unsigned int maxSize) : mMaxSize {maxSize}
 {
 }
 
@@ -21,11 +18,10 @@ LRU<T>::~LRU()
 }
 
 template<class T>
-shared_ptr<T> LRU<T>::get(const string &key)
+std::shared_ptr<T> LRU<T>::get(const std::string &key)
 {
-  lock_guard<mutex> lock(mtx);
-
-  auto it = cache.find(key);
+  std::shared_lock<std::shared_mutex> lock(mutex);
+  const auto it = cache.find(key);
   if (it == cache.end())
     return nullptr;
 
@@ -36,36 +32,35 @@ shared_ptr<T> LRU<T>::get(const string &key)
 }
 
 template<class T>
-void LRU<T>::set(const string &key, shared_ptr<T> value)
+void LRU<T>::set(const std::string &key, std::shared_ptr<T> value)
 {
-  lock_guard<mutex> lock(mtx);
-
-  auto it = cache.find(key);
+  std::unique_lock<std::shared_mutex> lock(mutex);
+  const auto it = cache.find(key);
   if (it != cache.end())
     keys.remove(key);
 
   cache[key] = value;
   keys.push_front(key);
 
-  while (cache.size() > maxSize) {
-    auto last = keys.back();
+  while (cache.size() > mMaxSize) {
+    const auto last = keys.back();
     keys.pop_back();
     cache.erase(last);
   }
 }
 
 template<class T>
-bool LRU<T>::has(const string &key)
+bool LRU<T>::has(const std::string &key)
 {
-  lock_guard<mutex> lock(mtx);
+  std::shared_lock<std::shared_mutex> lock(mutex);
   return cache.find(key) != cache.end();
 }
 
 template<class T>
-void LRU<T>::remove(const string &key)
+void LRU<T>::remove(const std::string &key)
 {
-  lock_guard<mutex> lock(mtx);
-  auto it = cache.find(key);
+  std::unique_lock<std::shared_mutex> lock(mutex);
+  const auto it = cache.find(key);
   if (it != cache.end()) {
     keys.remove(key);
     cache.erase(it);
@@ -75,7 +70,7 @@ void LRU<T>::remove(const string &key)
 template<class T>
 void LRU<T>::clear()
 {
-  lock_guard<mutex> lock(mtx);
+  std::unique_lock<std::shared_mutex> lock(mutex);
   cache.clear();
   keys.clear();
 }

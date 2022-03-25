@@ -1,4 +1,13 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
+
+set(
+	CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/cmake/toolchain.cmake"
+	CACHE
+	FILEPATH "Default toolchain"
+)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard")
+set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ standard to be supported")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "compile as PIC by default")
 
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
@@ -6,56 +15,128 @@ if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
 
+if(WIN32)
+  if(MSVC)
+    set(
+      CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} /bigobj")
+  endif()
+else()
+	set(
+		CMAKE_CXX_FLAGS
+		"${CMAKE_CXX_FLAGS} \
+		-Wall \
+		-Wextra \
+		-pipe \
+		-pedantic \
+		-fsized-deallocation \
+		-fdiagnostics-color=always \
+		-Wunreachable-code \
+		-Wno-attributes")
+	if(NOT CMAKE_COMPILER_IS_GNUCXX)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wshadow")
+	endif()
+endif()
+
 include("cmake/HunterGate.cmake")
 HunterGate(
-  URL "https://github.com/cpp-pm/hunter/archive/v0.23.297.tar.gz"
-  SHA1 "3319fe6a3b08090df7df98dee75134d68e2ef5a3"
-)
+  URL "https://github.com/cpp-pm/hunter/archive/v0.24.0.tar.gz"
+  SHA1 "a3d7f4372b1dcd52faa6ff4a3bd5358e1d0e5efd"
+  LOCAL)
 
-project(nonbiri-dev)
-enable_language(C CXX)
+project(nonbiri-dev LANGUAGES C CXX)
+include(FindPkgConfig)
 
-hunter_add_package(CURL)
-hunter_add_package(gumbo)
-hunter_add_package(jsoncpp)
-hunter_add_package(sqlite3)
+# Deps =======================================
 
-find_package(CURL CONFIG REQUIRED)
-find_package(gumbo CONFIG REQUIRED)
-find_package(jsoncpp CONFIG REQUIRED)
-find_package(sqlite3 CONFIG REQUIRED)
+file(GLOB GUMBO_QUERY_SOURCES libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
+set(DEPS
+  ${GUMBO_QUERY_SOURCES}
+  libs/nonbiri-core-dev/core/extension/extension.cpp
+  libs/nonbiri-core-dev/core/parser/parser.cpp
+  libs/nonbiri-core-dev/core/utils/utils.cpp)
 
 include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev
   ${CMAKE_CURRENT_LIST_DIR}
-  ${CURL_ROOT}/include
-  ${GUMBO_ROOT}/include
-)
+  libs/nonbiri-core-dev/libs
+  libs/nonbiri-core-dev)
 
-set(deps
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/Document.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/Node.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/Object.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/Parser.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/QueryUtil.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/Selection.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/Selector.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/extension/extension.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/parser/parser.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/utils/utils.cpp
-)
+# Main =======================================
 
-file (GLOB sources nonbiri/*.cpp nonbiri/*/*.cpp)
-add_executable(${PROJECT_NAME} ${deps} ${sources})
-
+file(GLOB MAIN_SOURCES nonbiri/*.cpp nonbiri/*/*.cpp libs/cpp-httplib/httplib.h)
+add_executable(${PROJECT_NAME} ${DEPS} ${MAIN_SOURCES})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
-target_link_libraries(${PROJECT_NAME} PUBLIC CURL::libcurl gumbo::gumbo sqlite3::sqlite3 jsoncpp_lib_static)
+target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
 
-# indexer
+# Indexer ====================================
 
-file (GLOB index_sources indexer/*.cpp nonbiri/cache/*.cpp nonbiri/manager/*.cpp nonbiri/models/*.cpp nonbiri/utils/*.cpp)
-add_executable(index ${deps} ${index_sources})
-
+file(GLOB INDEX_SOURCES
+  nonbiri/models/*.cpp
+  nonbiri/manager.cpp
+  nonbiri/atomic_map.cpp
+  nonbiri/utils.cpp
+  nonbiri/lru.cpp
+  indexer/*.cpp)
+add_executable(index ${DEPS} ${INDEX_SOURCES})
 target_compile_features(index PRIVATE cxx_std_17)
-target_link_libraries(index PUBLIC CURL::libcurl gumbo::gumbo jsoncpp_lib_static)
+
+# Packages ===================================
+
+add_definitions(-DCURL_STATICLIB)
+pkg_check_modules(CURL libcurl)
+if(CURL_FOUND)
+  include_directories(${CURL_INCLUDE_DIR})
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${CURL_LIBRARIES})
+  target_link_libraries(index PRIVATE ${CURL_LIBRARIES})
+else()
+  unset(CURL_FOUND CACHE)
+  hunter_add_package(CURL)
+  find_package(CURL CONFIG REQUIRED)
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
+  target_link_libraries(index PRIVATE CURL::libcurl)
+endif()
+
+pkg_check_modules(SQLITE3 sqlite3)
+if(SQLITE3_FOUND)
+  include_directories(${SQLITE3_INCLUDE_DIR})
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${SQLITE3_LIBRARIES})
+else()
+  unset(SQLITE3_FOUND CACHE)
+  hunter_add_package(sqlite3)
+  find_package(sqlite3 CONFIG REQUIRED)
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE sqlite3::sqlite3)
+endif()
+
+pkg_check_modules(JSONCPP jsoncpp)
+if(JSONCPP_FOUND)
+  include_directories(${JSONCPP_INCLUDE_DIR})
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${JSONCPP_LIBRARIES})
+  target_link_libraries(index PRIVATE ${JSONCPP_LIBRARIES})
+else()
+  unset(JSONCPP_FOUND CACHE)
+  hunter_add_package(jsoncpp)
+  find_package(jsoncpp CONFIG REQUIRED)
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE jsoncpp_lib_static)
+  target_link_libraries(index PRIVATE jsoncpp_lib_static)
+endif()
+
+pkg_check_modules(GUMBO gumbo)
+if(GUMBO_FOUND)
+  include_directories(${GUMBO_INCLUDE_DIR})
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${GUMBO_LIBRARIES})
+  target_link_libraries(index PRIVATE ${GUMBO_LIBRARIES})
+else()
+  unset(GUMBO_FOUND CACHE)
+  hunter_add_package(gumbo)
+  find_package(gumbo CONFIG REQUIRED)
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE gumbo::gumbo)
+  target_link_libraries(index PRIVATE gumbo::gumbo)
+endif()

@@ -1,17 +1,17 @@
-#ifndef NONBIRI_CACHE_LRU_H_
-#define NONBIRI_CACHE_LRU_H_
+#ifndef NONBIRI_LRU_H_
+#define NONBIRI_LRU_H_
 
 #include <list>
 #include <map>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <string>
 
 template<class T>
 class LRU
 {
-  unsigned int maxSize;
-  std::mutex mtx;
+  const unsigned int mMaxSize;
+  std::shared_mutex mutex;
 
   std::map<std::string, std::shared_ptr<T>> cache;
   std::list<std::string> keys;
@@ -28,4 +28,4 @@ public:
   void clear();
 };
 
-#endif
+#endif  // NONBIRI_LRU_H_

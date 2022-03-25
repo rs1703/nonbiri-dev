@@ -1,3 +1,6 @@
 [submodule "libs/nonbiri-core-dev"]
 	path = libs/nonbiri-core-dev
 	url = https://github.com/rs1703/nonbiri-core-dev
+[submodule "libs/cpp-httplib"]
+	path = libs/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib
