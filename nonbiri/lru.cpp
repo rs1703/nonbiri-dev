@@ -20,7 +20,7 @@ LRU<T>::~LRU()
 template<class T>
 std::shared_ptr<T> LRU<T>::get(const std::string &key)
 {
-  std::shared_lock<std::shared_mutex> lock(mutex);
+  std::shared_lock lock(mutex);
   const auto it = cache.find(key);
   if (it == cache.end())
     return nullptr;
@@ -34,7 +34,7 @@ std::shared_ptr<T> LRU<T>::get(const std::string &key)
 template<class T>
 void LRU<T>::set(const std::string &key, std::shared_ptr<T> value)
 {
-  std::unique_lock<std::shared_mutex> lock(mutex);
+  std::lock_guard lock(mutex);
   const auto it = cache.find(key);
   if (it != cache.end())
     keys.remove(key);
@@ -52,14 +52,14 @@ void LRU<T>::set(const std::string &key, std::shared_ptr<T> value)
 template<class T>
 bool LRU<T>::has(const std::string &key)
 {
-  std::shared_lock<std::shared_mutex> lock(mutex);
+  std::shared_lock lock(mutex);
   return cache.find(key) != cache.end();
 }
 
 template<class T>
 void LRU<T>::remove(const std::string &key)
 {
-  std::unique_lock<std::shared_mutex> lock(mutex);
+  std::lock_guard lock(mutex);
   const auto it = cache.find(key);
   if (it != cache.end()) {
     keys.remove(key);
@@ -70,7 +70,7 @@ void LRU<T>::remove(const std::string &key)
 template<class T>
 void LRU<T>::clear()
 {
-  std::unique_lock<std::shared_mutex> lock(mutex);
+  std::lock_guard lock(mutex);
   cache.clear();
   keys.clear();
 }

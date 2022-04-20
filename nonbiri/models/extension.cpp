@@ -29,19 +29,15 @@ bool CExtension::operator!=(const CExtension &extension)
 
 std::tuple<std::vector<MangaPtr>, bool> CExtension::getLatests(int page)
 {
-  std::cout << 1 << std::endl;
   const std::string res = latestsRequest(page);
-  std::cout << 11 << std::endl;
   if (res.empty())
     throw std::runtime_error("No results");
 
-  std::cout << 2 << std::endl;
   if (useApi) {
     const std::tuple<std::vector<Manga *>, bool> result = parseLatestEntries(res);
     return normalizeMangaEntries(result);
   }
 
-  std::cout << 3 << std::endl;
   CHtml html {res};
   try {
     const std::tuple<std::vector<Manga *>, bool> result = parseLatestEntries(html);
@@ -50,12 +46,9 @@ std::tuple<std::vector<MangaPtr>, bool> CExtension::getLatests(int page)
     // ignore
   }
 
-  std::cout << 4 << std::endl;
   const std::string selector = latestsSelector();
-  std::cout << 5 << std::endl;
   const std::vector<ElementPtr> entries = html.select(selector);
 
-  std::cout << 6 << std::endl;
   std::vector<MangaPtr> result;
   for (const ElementPtr &entry : entries) {
     const Manga *manga = parseLatestEntry(*entry);
@@ -63,17 +56,14 @@ std::tuple<std::vector<MangaPtr>, bool> CExtension::getLatests(int page)
       result.push_back(std::make_shared<CManga>(*manga));
   }
 
-  std::cout << 7 << std::endl;
   const std::string nextSelector = latestsNextSelector();
   bool hasNext = false;
 
-  std::cout << 8 << std::endl;
   if (!nextSelector.empty()) {
     const ElementPtr next = html.selectFirst(nextSelector);
     if (next)
       hasNext = next->isValid();
   }
-  std::cout << 9 << std::endl;
   return std::make_tuple(result, hasNext);
 }
 
