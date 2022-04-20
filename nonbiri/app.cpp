@@ -2,6 +2,7 @@
 
 #include <nonbiri/app.h>
 #include <nonbiri/controllers/api.h>
+#include <nonbiri/controllers/web.h>
 #include <nonbiri/database.h>
 #include <nonbiri/server.h>
 
@@ -14,6 +15,7 @@ App::App(int argc, char *argv[])
   server = new Server(port);
 
   new Api(*server, *manager);
+  new Web(*server);
 }
 
 App::~App()

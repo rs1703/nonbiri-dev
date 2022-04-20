@@ -7,9 +7,6 @@
 #endif
 
 #include <httplib.h>
-#include <nonbiri/manager.h>
-
-class Controller;
 
 class Server : private httplib::Server
 {
@@ -23,6 +20,7 @@ public:
   using httplib::Server::Patch;
   using httplib::Server::Post;
   using httplib::Server::Put;
+  using httplib::Server::set_mount_point;
 
   void start();
 };

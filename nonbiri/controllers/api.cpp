@@ -17,9 +17,6 @@ using httplib::Response;
 
 Api::Api(Server &s, Manager &m) : manager(&m)
 {
-#define GET(path, callback) s.Get(path, [&](const Request &req, Response &res) { callback(req, res); })
-#define POST(path, callback) s.Post(path, [&](const Request &req, Response &res) { callback(req, res); })
-
   GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
   POST("/api/extensions/?", refreshExtensions);
   POST("/api/extensions/install/?", installExtension);

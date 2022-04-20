@@ -21,4 +21,7 @@
   res.status = code; \
   return res.set_content(body, mime);
 
+#define GET(path, callback) s.Get(path, [&](const Request &req, Response &res) { callback(req, res); })
+#define POST(path, callback) s.Post(path, [&](const Request &req, Response &res) { callback(req, res); })
+
 #endif  // NONBIRI_CONTROLLERS_MACRO_H_
