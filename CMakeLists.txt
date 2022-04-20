@@ -1,43 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
 
-set(
-	CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/cmake/toolchain.cmake"
-	CACHE
-	FILEPATH "Default toolchain"
-)
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard")
-set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ standard to be supported")
-set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "compile as PIC by default")
-
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
-endif(CCACHE_FOUND)
-
-if(WIN32)
-  if(MSVC)
-    set(
-      CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} /bigobj")
-  endif()
-else()
-	set(
-		CMAKE_CXX_FLAGS
-		"${CMAKE_CXX_FLAGS} \
-		-Wall \
-		-Wextra \
-		-pipe \
-		-pedantic \
-		-fsized-deallocation \
-		-fdiagnostics-color=always \
-		-Wunreachable-code \
-		-Wno-attributes")
-	if(NOT CMAKE_COMPILER_IS_GNUCXX)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wshadow")
-	endif()
-endif()
-
 include("cmake/HunterGate.cmake")
 HunterGate(
   URL "https://github.com/cpp-pm/hunter/archive/v0.24.0.tar.gz"
