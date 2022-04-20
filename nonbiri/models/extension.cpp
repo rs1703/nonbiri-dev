@@ -109,18 +109,17 @@ std::tuple<std::vector<MangaPtr>, bool> CExtension::searchManga(int page, const 
 
 MangaPtr CExtension::getManga(const std::string &path, bool update)
 {
-  std::string strippedPath {stripDomain(path)};
-  std::string cacheKey {id + strippedPath};
+  const std::string uri {prependBaseUrl(path)};
+  std::string cacheKey {id + path};
 
   if (!update) {
     const MangaPtr cache = mLRU.get(cacheKey);
     if (cache != nullptr) {
-      std::cout << "Cache hit for " << strippedPath << std::endl;
+      std::cout << "Cache hit for " << uri << std::endl;
       return cache;
     }
   }
 
-  const std::string uri {baseUrl + strippedPath};
   const std::string res = http::get(uri);
   if (res.empty())
     throw std::runtime_error("No results");
@@ -170,6 +169,7 @@ std::vector<ChapterPtr> CExtension::getChapters(CManga &manga)
     if (entry != nullptr)
       result.push_back(std::make_shared<CChapter>(*entry));
   }
+
   return result;
 }
 
@@ -179,17 +179,17 @@ std::vector<ChapterPtr> CExtension::getChapters(const std::string &path)
   return getChapters(*manga);
 }
 
-std::vector<std::string> CExtension::getPages(const CChapter &chapter)
+std::vector<std::string> CExtension::getPages(const std::string &path)
 {
-  const std::string res = pagesRequest(chapter);
+  const std::string res = pagesRequest(path);
   if (res.empty())
     throw std::runtime_error("No results");
 
   if (useApi)
-    return parsePages(chapter, res);
+    return parsePages(res);
 
   CHtml html {res};
-  return parsePages(chapter, html);
+  return parsePages(html);
 }
 
 std::tuple<std::vector<MangaPtr>, bool> CExtension::normalizeMangaEntries(

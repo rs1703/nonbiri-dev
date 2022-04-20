@@ -235,27 +235,42 @@ void Manager::updateExtensionIndexes()
 
 std::tuple<std::vector<MangaPtr>, bool> Manager::getLatests(const std::string &id, int page)
 {
-  return getExtension(id)->getLatests(page);
+  auto ext = getExtension(id);
+  if (ext == nullptr)
+    throw std::runtime_error("Extension not found");
+  return ext->getLatests(page);
 }
 
 std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &id, int page, const std::string &query)
 {
-  return getExtension(id)->searchManga(page, query);
+  auto ext = getExtension(id);
+  if (ext == nullptr)
+    throw std::runtime_error("Extension not found");
+  return ext->searchManga(page, query);
 }
 
 MangaPtr Manager::getManga(const std::string &id, const std::string &path)
 {
-  return getExtension(id)->getManga(path);
+  auto ext = getExtension(id);
+  if (ext == nullptr)
+    throw std::runtime_error("Extension not found");
+  return ext->getManga(path);
 }
 
 std::vector<ChapterPtr> Manager::getChapters(const std::string &id, CManga &manga)
 {
-  return getExtension(id)->getChapters(manga);
+  auto ext = getExtension(id);
+  if (ext == nullptr)
+    throw std::runtime_error("Extension not found");
+  return ext->getChapters(manga);
 }
 
-std::vector<std::string> Manager::getPages(const std::string &id, const CChapter &chapter)
+std::vector<std::string> Manager::getPages(const std::string &id, const std::string &path)
 {
-  return getExtension(id)->getPages(chapter);
+  auto ext = getExtension(id);
+  if (ext == nullptr)
+    throw std::runtime_error("Extension not found");
+  return ext->getPages(path);
 }
 
 std::vector<std::string> Manager::getLocalExtensionPaths()

@@ -56,7 +56,7 @@ public:
                                                       const std::string &query = "");
   MangaPtr getManga(const std::string &id, const std::string &path);
   std::vector<ChapterPtr> getChapters(const std::string &id, CManga &manga);
-  std::vector<std::string> getPages(const std::string &id, const CChapter &chapter);
+  std::vector<std::string> getPages(const std::string &id, const std::string &path);
 
 private:
   std::vector<std::string> getLocalExtensionPaths();

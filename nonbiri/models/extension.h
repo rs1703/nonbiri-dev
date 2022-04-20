@@ -32,7 +32,6 @@ public:
   MangaPtr getManga(const std::string &path, bool update = false);
   std::vector<ChapterPtr> getChapters(CManga &manga);
   std::vector<ChapterPtr> getChapters(const std::string &path);
-  std::vector<std::string> getPages(const CChapter &chapter);
   std::vector<std::string> getPages(const std::string &path);
 
 private:
