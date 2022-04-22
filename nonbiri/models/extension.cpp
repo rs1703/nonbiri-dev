@@ -6,7 +6,7 @@
 #include <nonbiri/models/extension.h>
 #include <nonbiri/utils.h>
 
-using ElementPtr = std::shared_ptr<CElement>;
+using ElementPtr = std::shared_ptr<Element>;
 
 LRU<CManga> CExtension::mLRU {2048};
 
@@ -38,7 +38,7 @@ std::tuple<std::vector<MangaPtr>, bool> CExtension::getLatests(int page)
     return normalizeMangaEntries(result);
   }
 
-  CHtml html {res};
+  HTML html {res};
   try {
     const std::tuple<std::vector<Manga *>, bool> result = parseLatestEntries(html);
     return normalizeMangaEntries(result);
@@ -78,7 +78,7 @@ std::tuple<std::vector<MangaPtr>, bool> CExtension::searchManga(int page, const 
     return normalizeMangaEntries(result);
   }
 
-  CHtml html {res};
+  HTML html {res};
   try {
     const std::tuple<std::vector<Manga *>, bool> result = parseSearchEntries(html);
     return normalizeMangaEntries(result);
@@ -128,7 +128,7 @@ MangaPtr CExtension::getManga(const std::string &path, bool update)
   if (useApi) {
     result = parseManga(res);
   } else {
-    CHtml html {res};
+    HTML html {res};
     result = parseManga(html);
   }
 
@@ -152,7 +152,7 @@ std::vector<ChapterPtr> CExtension::getChapters(CManga &manga)
     return normalizeChapterEntries(result);
   }
 
-  CHtml html {res};
+  HTML html {res};
   try {
     const std::vector<Chapter *> result = parseChapterEntries(manga, html);
     return normalizeChapterEntries(result);
@@ -188,7 +188,7 @@ std::vector<std::string> CExtension::getPages(const std::string &path)
   if (useApi)
     return parsePages(res);
 
-  CHtml html {res};
+  HTML html {res};
   return parsePages(html);
 }
 
