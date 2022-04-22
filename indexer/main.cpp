@@ -23,6 +23,7 @@ int main()
     root[k]["name"] = extension->name;
     root[k]["language"] = extension->language;
     root[k]["version"] = extension->version;
+    root[k]["isNsfw"] = extension->isNsfw;
   }
 
   std::ofstream out {dir + ".json"};

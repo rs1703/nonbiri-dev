@@ -50,6 +50,7 @@ void Api::getExtensions(const Request &req, Response &res)
         json["baseUrl"] = info.baseUrl;
         json["language"] = info.language;
         json["version"] = info.version;
+        json["isNsfw"] = info.isNsfw;
         json["isInstalled"] = extensions.find(info.id) != extensions.end();
 
         root.append(json);
@@ -62,6 +63,7 @@ void Api::getExtensions(const Request &req, Response &res)
         json["baseUrl"] = ext->baseUrl;
         json["language"] = ext->language;
         json["version"] = ext->version;
+        json["isNsfw"] = ext->isNsfw;
         json["hasUpdate"] = (bool)ext->hasUpdate;
 
         root.append(json);
