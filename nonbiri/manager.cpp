@@ -6,23 +6,23 @@
 #include <tuple>
 #include <vector>
 
-#include <core/utils/utils.h>
+#include <core/utils.h>
 #include <json/json.h>
 #include <nonbiri/manager.h>
 #include <nonbiri/utils.h>
 
 namespace fs = std::filesystem;
-typedef const ExtensionPtr (*createPtr)(void);
+typedef Extension *(*createPtr)(void);
 
 static const std::string dataBaseUrl {"https://raw.githubusercontent.com/rs1703/nonbiri-extensions-dev/releases"};
 
-const ExtensionPtr createExtension(void *handle)
+Extension *createExtension(void *handle)
 {
-  const auto create = (createPtr)utils::getSymbol(handle, "create");
+  auto create = (createPtr)utils::getSymbol(handle, "create");
   if (create == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'create' from extension");
 
-  const ExtensionPtr extension = create();
+  Extension *extension = create();
   if (extension == nullptr)
     throw std::runtime_error("Unable to instantiate extension");
 
@@ -47,7 +47,7 @@ Manager::~Manager()
   std::cout << "Manager::~Manager()" << std::endl;
 }
 
-ExtensionPtr Manager::getExtension(const std::string &id)
+Extension *Manager::getExtension(const std::string &id)
 {
   std::shared_lock lock {mExtensionsMutex};
   auto it = mExtensions.find(id);
@@ -62,13 +62,13 @@ ExtensionMap &Manager::getExtensions()
   return mExtensions;
 }
 
-ExtensionInfo *Manager::getExtensionInfo(const std::string &id)
+std::shared_ptr<ExtensionInfo> Manager::getExtensionInfo(const std::string &id)
 {
   std::shared_lock lock(mIndexesMutex);
   auto it = mIndexes.find(id);
   if (it == mIndexes.end())
     return nullptr;
-  return &it->second;
+  return std::make_shared<ExtensionInfo>(it->second);
 }
 
 ExtensionInfoMap &Manager::getIndexes()
@@ -82,13 +82,13 @@ ExtensionInfoMap &Manager::getIndexes()
   if (handle == nullptr) \
     throw std::runtime_error("Unable to load extension"); \
 \
-  const ExtensionPtr ext = createExtension(handle); \
+  auto ext = createExtension(handle); \
   if (mExtensions.find(ext->id) != mExtensions.end()) { \
     utils::freeLibrary(handle); \
     throw std::runtime_error("Extension already loaded"); \
   } \
 \
-  const ExtensionInfo *info = getExtensionInfo(ext->id); \
+  auto info = getExtensionInfo(ext->id); \
   ext->hasUpdate = info != nullptr && ext->version != info->version; \
 \
   mExtensions.insert(std::make_pair(ext->id, ext)); \
@@ -115,6 +115,7 @@ void Manager::unloadExtension(const std::string &id)
   if (it == mExtensions.end())
     throw std::runtime_error("Extension not loaded");
 
+  delete it->second;
   mExtensions.erase(it);
   std::cout << "Unloaded " << id << std::endl;
 }
@@ -227,7 +228,7 @@ void Manager::updateExtensionIndexes()
     };
     mIndexes.insert(std::make_pair(info.id, info));
 
-    ExtensionPtr ext = getExtension(info.id);
+    auto ext = getExtension(info.id);
     if (ext != nullptr)
       ext->hasUpdate = ext->version != info.version;
   }
@@ -241,12 +242,15 @@ std::tuple<std::vector<MangaPtr>, bool> Manager::getLatests(const std::string &i
   return ext->getLatests(page);
 }
 
-std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &id, int page, const std::string &query)
+std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &id,
+                                                             int page,
+                                                             const std::string &query,
+                                                             const std::vector<Filter> &filters)
 {
   auto ext = getExtension(id);
   if (ext == nullptr)
     throw std::runtime_error("Extension not found");
-  return ext->searchManga(page, query);
+  return ext->searchManga(page, query, filters);
 }
 
 MangaPtr Manager::getManga(const std::string &id, const std::string &path)
@@ -257,7 +261,7 @@ MangaPtr Manager::getManga(const std::string &id, const std::string &path)
   return ext->getManga(path);
 }
 
-std::vector<ChapterPtr> Manager::getChapters(const std::string &id, CManga &manga)
+std::vector<ChapterPtr> Manager::getChapters(const std::string &id, Manga &manga)
 {
   auto ext = getExtension(id);
   if (ext == nullptr)

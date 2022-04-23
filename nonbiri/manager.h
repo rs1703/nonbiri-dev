@@ -10,11 +10,10 @@
 #include <tuple>
 #include <vector>
 
-#include <nonbiri/models/chapter.h>
-#include <nonbiri/models/extension.h>
-#include <nonbiri/models/manga.h>
+#include <core/extension.h>
+#include <core/models.h>
 
-using ExtensionMap = std::map<std::string, ExtensionPtr>;
+using ExtensionMap = std::map<std::string, Extension *>;
 using ExtensionInfoMap = std::map<std::string, ExtensionInfo>;
 
 class Manager
@@ -23,7 +22,6 @@ class Manager
   std::atomic<time_t> indexLastUpdated;
 
   ExtensionMap mExtensions;
-  std::map<std::string, void *> mExtensionHandles;
   std::shared_mutex mExtensionsMutex;
 
   ExtensionInfoMap mIndexes;
@@ -35,9 +33,9 @@ public:
   void reset();
 
   //
-  ExtensionPtr getExtension(const std::string &id);
+  Extension *getExtension(const std::string &id);
   ExtensionMap &getExtensions();
-  ExtensionInfo *getExtensionInfo(const std::string &id);
+  std::shared_ptr<ExtensionInfo> getExtensionInfo(const std::string &id);
   ExtensionInfoMap &getIndexes();
 
   void loadExtension(const std::string &name);
@@ -50,12 +48,13 @@ public:
   void updateExtensionIndexes();
 
   //
-  std::tuple<std::vector<MangaPtr>, bool> getLatests(const std::string &id, int page = 1);
+  std::tuple<std::vector<MangaPtr>, bool> getLatests(const std::string &id, int page);
   std::tuple<std::vector<MangaPtr>, bool> searchManga(const std::string &id,
-                                                      int page = 1,
-                                                      const std::string &query = "");
+                                                      int page,
+                                                      const std::string &query,
+                                                      const std::vector<Filter> &filters);
   MangaPtr getManga(const std::string &id, const std::string &path);
-  std::vector<ChapterPtr> getChapters(const std::string &id, CManga &manga);
+  std::vector<ChapterPtr> getChapters(const std::string &id, Manga &manga);
   std::vector<std::string> getPages(const std::string &id, const std::string &path);
 
 private:

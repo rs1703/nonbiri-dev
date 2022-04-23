@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <core/utils/utils.h>
+#include <core/utils.h>
 #include <json/json.h>
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/macro.h>
@@ -131,7 +131,7 @@ void Api::getLatests(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    ExtensionPtr ext = manager->getExtension(id);
+    auto ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -172,18 +172,28 @@ void Api::searchManga(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    ExtensionPtr ext = manager->getExtension(id);
+    auto ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    const std::string pageStr = req.get_param_value("page");
-    const int page = std::max(1, std::stoi(pageStr.empty() ? "1" : pageStr));
+    int page;
+    std::string query;
+    std::vector<Filter> filters;
 
-    const std::string query = req.get_param_value("q");
+    auto filtersMap = ext->getFiltersMap();
+    for (const auto &[key, value] : req.params) {
+      if (key == "page") {
+        page = std::max(1, std::stoi(value));
+      } else if (key == "q") {
+        query = value;
+      } else if (filtersMap.find(key) != filtersMap.end()) {
+        filters.push_back({key, value});
+      }
+    }
 
     auto startTime = std::chrono::high_resolution_clock::now();
-    const auto &[entries, hasNext] = ext->searchManga(page, query);
+    const auto &[entries, hasNext] = ext->searchManga(page, query, filters);
 
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
@@ -215,7 +225,7 @@ void Api::getManga(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    ExtensionPtr ext = manager->getExtension(id);
+    auto ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -224,7 +234,7 @@ void Api::getManga(const Request &req, Response &res)
     const std::string updateStr = req.get_param_value("update");
 
     auto startTime = std::chrono::high_resolution_clock::now();
-    const MangaPtr manga = ext->getManga(path, updateStr == "1");
+    const MangaPtr manga = ext->getManga(path);
 
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
@@ -268,7 +278,7 @@ void Api::getChapters(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    ExtensionPtr ext = manager->getExtension(id);
+    auto ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -309,7 +319,7 @@ void Api::getPages(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    ExtensionPtr ext = manager->getExtension(id);
+    auto ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
