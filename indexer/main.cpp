@@ -15,7 +15,7 @@ int main()
   Manager manager(dir);
   Json::Value root;
 
-  ExtensionMap &extensions = manager.getExtensions();
+  auto extensions = manager.getExtensions();
   for (const auto &[_, extension] : extensions) {
     auto k = extension->id;
     root[k]["id"] = k;
