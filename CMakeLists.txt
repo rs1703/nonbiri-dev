@@ -15,6 +15,7 @@ file(GLOB GUMBO_QUERY_SOURCES libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
 set(DEPS
   ${GUMBO_QUERY_SOURCES}
   libs/nonbiri-core-dev/core/extension.cpp
+  libs/nonbiri-core-dev/core/filters.cpp
   libs/nonbiri-core-dev/core/parser.cpp
   libs/nonbiri-core-dev/core/utils.cpp)
 

@@ -179,7 +179,7 @@ void Api::searchManga(const Request &req, Response &res)
 
     int page = 1;
     std::string query {};
-    std::vector<Filter> filters {};
+    std::vector<FilterKV> filters {};
 
     const auto &filtersMap = ext->getFiltersMap();
     for (const auto &[key, value] : req.params) {

@@ -52,7 +52,7 @@ public:
   std::tuple<std::vector<MangaPtr>, bool> searchManga(const std::string &id,
                                                       int page,
                                                       const std::string &query,
-                                                      const std::vector<Filter> &filters);
+                                                      const std::vector<FilterKV> &filters);
   MangaPtr getManga(const std::string &id, const std::string &path);
   std::vector<ChapterPtr> getChapters(const std::string &id, Manga &manga);
   std::vector<std::string> getPages(const std::string &id, const std::string &path);

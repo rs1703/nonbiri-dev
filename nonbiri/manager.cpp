@@ -245,7 +245,7 @@ std::tuple<std::vector<MangaPtr>, bool> Manager::getLatests(const std::string &i
 std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &id,
                                                              int page,
                                                              const std::string &query,
-                                                             const std::vector<Filter> &filters)
+                                                             const std::vector<FilterKV> &filters)
 {
   Extension *ext = getExtension(id);
   if (ext == nullptr)
