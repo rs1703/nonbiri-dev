@@ -34,9 +34,9 @@ public:
 
   //
   Extension *getExtension(const std::string &id);
-  ExtensionMap &getExtensions();
-  std::shared_ptr<ExtensionInfo> getExtensionInfo(const std::string &id);
-  ExtensionInfoMap &getIndexes();
+  const ExtensionMap &getExtensions();
+  const std::shared_ptr<ExtensionInfo> getExtensionInfo(const std::string &id);
+  const ExtensionInfoMap &getIndexes();
 
   void loadExtension(const std::string &name);
   void unloadExtension(const std::string &id);

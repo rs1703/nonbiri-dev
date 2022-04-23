@@ -56,13 +56,13 @@ Extension *Manager::getExtension(const std::string &id)
   return it->second;
 }
 
-ExtensionMap &Manager::getExtensions()
+const ExtensionMap &Manager::getExtensions()
 {
   std::shared_lock lock(mExtensionsMutex);
   return mExtensions;
 }
 
-std::shared_ptr<ExtensionInfo> Manager::getExtensionInfo(const std::string &id)
+const std::shared_ptr<ExtensionInfo> Manager::getExtensionInfo(const std::string &id)
 {
   std::shared_lock lock(mIndexesMutex);
   auto it = mIndexes.find(id);
@@ -71,7 +71,7 @@ std::shared_ptr<ExtensionInfo> Manager::getExtensionInfo(const std::string &id)
   return std::make_shared<ExtensionInfo>(it->second);
 }
 
-ExtensionInfoMap &Manager::getIndexes()
+const ExtensionInfoMap &Manager::getIndexes()
 {
   std::shared_lock lock(mIndexesMutex);
   return mIndexes;
@@ -82,13 +82,13 @@ ExtensionInfoMap &Manager::getIndexes()
   if (handle == nullptr) \
     throw std::runtime_error("Unable to load extension"); \
 \
-  auto ext = createExtension(handle); \
+  Extension *ext = createExtension(handle); \
   if (mExtensions.find(ext->id) != mExtensions.end()) { \
     utils::freeLibrary(handle); \
     throw std::runtime_error("Extension already loaded"); \
   } \
 \
-  auto info = getExtensionInfo(ext->id); \
+  const auto info = getExtensionInfo(ext->id); \
   ext->hasUpdate = info != nullptr && ext->version != info->version; \
 \
   mExtensions.insert(std::make_pair(ext->id, ext)); \
@@ -228,7 +228,7 @@ void Manager::updateExtensionIndexes()
     };
     mIndexes.insert(std::make_pair(info.id, info));
 
-    auto ext = getExtension(info.id);
+    Extension *ext = getExtension(info.id);
     if (ext != nullptr)
       ext->hasUpdate = ext->version != info.version;
   }
@@ -236,7 +236,7 @@ void Manager::updateExtensionIndexes()
 
 std::tuple<std::vector<MangaPtr>, bool> Manager::getLatests(const std::string &id, int page)
 {
-  auto ext = getExtension(id);
+  Extension *ext = getExtension(id);
   if (ext == nullptr)
     throw std::runtime_error("Extension not found");
   return ext->getLatests(page);
@@ -247,7 +247,7 @@ std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &
                                                              const std::string &query,
                                                              const std::vector<Filter> &filters)
 {
-  auto ext = getExtension(id);
+  Extension *ext = getExtension(id);
   if (ext == nullptr)
     throw std::runtime_error("Extension not found");
   return ext->searchManga(page, query, filters);
@@ -255,7 +255,7 @@ std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &
 
 MangaPtr Manager::getManga(const std::string &id, const std::string &path)
 {
-  auto ext = getExtension(id);
+  Extension *ext = getExtension(id);
   if (ext == nullptr)
     throw std::runtime_error("Extension not found");
   return ext->getManga(path);
@@ -263,7 +263,7 @@ MangaPtr Manager::getManga(const std::string &id, const std::string &path)
 
 std::vector<ChapterPtr> Manager::getChapters(const std::string &id, Manga &manga)
 {
-  auto ext = getExtension(id);
+  Extension *ext = getExtension(id);
   if (ext == nullptr)
     throw std::runtime_error("Extension not found");
   return ext->getChapters(manga);
@@ -271,7 +271,7 @@ std::vector<ChapterPtr> Manager::getChapters(const std::string &id, Manga &manga
 
 std::vector<std::string> Manager::getPages(const std::string &id, const std::string &path)
 {
-  auto ext = getExtension(id);
+  Extension *ext = getExtension(id);
   if (ext == nullptr)
     throw std::runtime_error("Extension not found");
   return ext->getPages(path);

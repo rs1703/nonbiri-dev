@@ -33,18 +33,18 @@ Api::Api(Server &s, Manager &m) : manager(&m)
 void Api::getExtensions(const Request &req, Response &res)
 {
   try {
-    Json::Value root;
-    Json::FastWriter writer;
+    Json::Value root {};
+    Json::FastWriter writer {};
 
     const bool isRefresh = !res.get_header_value("refresh").empty();
     if (isRefresh)
       res.headers.erase("refresh");
 
-    ExtensionMap extensions = manager->getExtensions();
+    const ExtensionMap &extensions = manager->getExtensions();
     if (req.matches[1].str() == "index" || isRefresh) {
-      ExtensionInfoMap indexes = manager->getIndexes();
+      const ExtensionInfoMap &indexes = manager->getIndexes();
       for (const auto &[_, info] : indexes) {
-        Json::Value json;
+        Json::Value json {};
         json["id"] = info.id;
         json["name"] = info.name;
         json["baseUrl"] = info.baseUrl;
@@ -57,7 +57,7 @@ void Api::getExtensions(const Request &req, Response &res)
       }
     } else {
       for (const auto &[_, ext] : extensions) {
-        Json::Value json;
+        Json::Value json {};
         json["id"] = ext->id;
         json["name"] = ext->name;
         json["baseUrl"] = ext->baseUrl;
@@ -131,13 +131,13 @@ void Api::getLatests(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    auto ext = manager->getExtension(id);
+    Extension *ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
     const std::string pageStr = req.get_param_value("page");
-    const int page = std::max(1, std::stoi(pageStr.empty() ? "1" : pageStr));
+    const int page = std::max(1, pageStr.empty() ? 1 : std::stoi(pageStr));
 
     auto startTime = std::chrono::high_resolution_clock::now();
     const auto &[entries, hasNext] = ext->getLatests(page);
@@ -145,14 +145,14 @@ void Api::getLatests(const Request &req, Response &res)
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-    Json::Value root;
-    Json::FastWriter writer;
+    Json::Value root {};
+    Json::FastWriter writer {};
 
     root["id"] = ext->id;
     root["page"] = page;
     root["hasNext"] = hasNext;
 
-    for (const MangaPtr &entry : entries) {
+    for (const MangaPtr entry : entries) {
       Json::Value json;
       json["path"] = entry->path;
       json["coverUrl"] = entry->coverUrl;
@@ -172,16 +172,16 @@ void Api::searchManga(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    auto ext = manager->getExtension(id);
+    Extension *ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    int page;
-    std::string query;
-    std::vector<Filter> filters;
+    int page = 1;
+    std::string query {};
+    std::vector<Filter> filters {};
 
-    auto filtersMap = ext->getFiltersMap();
+    const auto &filtersMap = ext->getFiltersMap();
     for (const auto &[key, value] : req.params) {
       if (key == "page") {
         page = std::max(1, std::stoi(value));
@@ -198,15 +198,15 @@ void Api::searchManga(const Request &req, Response &res)
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-    Json::Value root;
-    Json::FastWriter writer;
+    Json::Value root {};
+    Json::FastWriter writer {};
 
     root["id"] = ext->id;
     root["page"] = page;
     root["hasNext"] = hasNext;
 
     for (const MangaPtr &entry : entries) {
-      Json::Value json;
+      Json::Value json {};
       json["path"] = entry->path;
       json["coverUrl"] = entry->coverUrl;
       json["title"] = entry->title;
@@ -225,7 +225,7 @@ void Api::getManga(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    auto ext = manager->getExtension(id);
+    Extension *ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -278,7 +278,7 @@ void Api::getChapters(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    auto ext = manager->getExtension(id);
+    Extension *ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -291,12 +291,12 @@ void Api::getChapters(const Request &req, Response &res)
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-    Json::Value root;
-    Json::FastWriter writer;
+    Json::Value root {};
+    Json::FastWriter writer {};
 
     root["id"] = ext->id;
     for (const ChapterPtr &chapter : chapters) {
-      Json::Value json;
+      Json::Value json {};
       json["path"] = chapter->path;
       json["name"] = chapter->name;
       json["publishedAt"] = chapter->publishedAt;
@@ -319,7 +319,7 @@ void Api::getPages(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    auto ext = manager->getExtension(id);
+    Extension *ext = manager->getExtension(id);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -332,8 +332,8 @@ void Api::getPages(const Request &req, Response &res)
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-    Json::Value root;
-    Json::FastWriter writer;
+    Json::Value root {};
+    Json::FastWriter writer {};
 
     root["id"] = ext->id;
     for (const std::string &page : pages)
