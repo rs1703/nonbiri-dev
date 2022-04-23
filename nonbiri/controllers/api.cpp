@@ -17,6 +17,7 @@ using httplib::Response;
 
 Api::Api(Server &s, Manager &m) : manager(&m)
 {
+  GET("/api/extensions/filters/?", getExtensionFilters);
   GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
   POST("/api/extensions/?", refreshExtensions);
   POST("/api/extensions/install/?", installExtension);
@@ -93,6 +94,29 @@ void Api::refreshExtensions(const Request &req, Response &res)
   if (id.empty()) { \
     ABORT(STATUS_BAD_REQUEST, JSON_BAD_REQUEST, MIME_JSON); \
   }
+
+void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &res)
+{
+  try {
+    CHECK_EXTENSION_ID;
+    Extension *ext = manager->getExtension(id);
+    if (ext == nullptr) {
+      ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
+    }
+
+    const auto &filters = ext->getFilters();
+    Json::Value root {};
+    Json::FastWriter writer {};
+
+    for (const auto &filter : filters)
+      root.append(filter.toJson());
+
+    const std::string json = root.empty() ? "[]" : writer.write(root);
+    REPLY(STATUS_OK, json, MIME_JSON);
+  } catch (const std::exception &e) {
+    REPLY(STATUS_INTERNAL_SERVER_ERROR, JSON_EXCEPTION, MIME_JSON);
+  }
+}
 
 void Api::installExtension(const Request &req, Response &res)
 {

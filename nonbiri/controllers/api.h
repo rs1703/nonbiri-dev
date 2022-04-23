@@ -14,6 +14,7 @@ public:
 
   void getExtensions(const httplib::Request &, httplib::Response &);
   void refreshExtensions(const httplib::Request &, httplib::Response &);
+  void getExtensionFilters(const httplib::Request &, httplib::Response &);
   void installExtension(const httplib::Request &, httplib::Response &);
   void uninstallExtension(const httplib::Request &, httplib::Response &);
   void updateExtension(const httplib::Request &, httplib::Response &);
