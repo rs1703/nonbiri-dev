@@ -14,9 +14,9 @@ include(FindPkgConfig)
 file(GLOB GUMBO_QUERY_SOURCES libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
 set(DEPS
   ${GUMBO_QUERY_SOURCES}
-  libs/nonbiri-core-dev/core/extension/extension.cpp
-  libs/nonbiri-core-dev/core/parser/parser.cpp
-  libs/nonbiri-core-dev/core/utils/utils.cpp)
+  libs/nonbiri-core-dev/core/extension.cpp
+  libs/nonbiri-core-dev/core/parser.cpp
+  libs/nonbiri-core-dev/core/utils.cpp)
 
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}
@@ -33,11 +33,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
 # Indexer ====================================
 
 file(GLOB INDEX_SOURCES
-  nonbiri/models/*.cpp
   nonbiri/manager.cpp
-  nonbiri/atomic_map.cpp
   nonbiri/utils.cpp
-  nonbiri/lru.cpp
   indexer/*.cpp)
 add_executable(index ${DEPS} ${INDEX_SOURCES})
 target_compile_features(index PRIVATE cxx_std_17)
