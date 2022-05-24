@@ -3,7 +3,7 @@
 #include <core/models.h>
 #include <nonbiri/lru.h>
 
-template class LRU<Manga>;
+template class LRU<Manga_t>;
 
 template<class T>
 LRU<T>::LRU(unsigned int maxSize) : mMaxSize {maxSize}

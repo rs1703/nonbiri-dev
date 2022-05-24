@@ -234,7 +234,7 @@ void Manager::updateExtensionIndexes()
   }
 }
 
-std::tuple<std::vector<MangaPtr>, bool> Manager::getLatests(const std::string &id, int page)
+std::tuple<std::vector<MangaPtr_t>, bool> Manager::getLatests(const std::string &id, int page)
 {
   Extension *ext = getExtension(id);
   if (ext == nullptr)
@@ -242,10 +242,10 @@ std::tuple<std::vector<MangaPtr>, bool> Manager::getLatests(const std::string &i
   return ext->getLatests(page);
 }
 
-std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &id,
-                                                             int page,
-                                                             const std::string &query,
-                                                             const std::vector<FilterKV> &filters)
+std::tuple<std::vector<MangaPtr_t>, bool> Manager::searchManga(const std::string &id,
+                                                               int page,
+                                                               const std::string &query,
+                                                               const std::vector<FilterKV> &filters)
 {
   Extension *ext = getExtension(id);
   if (ext == nullptr)
@@ -253,7 +253,7 @@ std::tuple<std::vector<MangaPtr>, bool> Manager::searchManga(const std::string &
   return ext->searchManga(page, query, filters);
 }
 
-MangaPtr Manager::getManga(const std::string &id, const std::string &path)
+MangaPtr_t Manager::getManga(const std::string &id, const std::string &path)
 {
   Extension *ext = getExtension(id);
   if (ext == nullptr)
@@ -261,7 +261,7 @@ MangaPtr Manager::getManga(const std::string &id, const std::string &path)
   return ext->getManga(path);
 }
 
-std::vector<ChapterPtr> Manager::getChapters(const std::string &id, Manga &manga)
+std::vector<ChapterPtr_t> Manager::getChapters(const std::string &id, Manga_t &manga)
 {
   Extension *ext = getExtension(id);
   if (ext == nullptr)

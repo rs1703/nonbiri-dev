@@ -48,13 +48,13 @@ public:
   void updateExtensionIndexes();
 
   //
-  std::tuple<std::vector<MangaPtr>, bool> getLatests(const std::string &id, int page);
-  std::tuple<std::vector<MangaPtr>, bool> searchManga(const std::string &id,
-                                                      int page,
-                                                      const std::string &query,
-                                                      const std::vector<FilterKV> &filters);
-  MangaPtr getManga(const std::string &id, const std::string &path);
-  std::vector<ChapterPtr> getChapters(const std::string &id, Manga &manga);
+  std::tuple<std::vector<MangaPtr_t>, bool> getLatests(const std::string &id, int page);
+  std::tuple<std::vector<MangaPtr_t>, bool> searchManga(const std::string &id,
+                                                        int page,
+                                                        const std::string &query,
+                                                        const std::vector<FilterKV> &filters);
+  MangaPtr_t getManga(const std::string &id, const std::string &path);
+  std::vector<ChapterPtr_t> getChapters(const std::string &id, Manga_t &manga);
   std::vector<std::string> getPages(const std::string &id, const std::string &path);
 
 private:

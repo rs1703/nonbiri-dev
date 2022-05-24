@@ -176,7 +176,7 @@ void Api::getLatests(const Request &req, Response &res)
     root["page"] = page;
     root["hasNext"] = hasNext;
 
-    for (const MangaPtr entry : entries) {
+    for (const MangaPtr_t entry : entries) {
       Json::Value json;
       json["path"] = entry->path;
       json["coverUrl"] = entry->coverUrl;
@@ -229,7 +229,7 @@ void Api::searchManga(const Request &req, Response &res)
     root["page"] = page;
     root["hasNext"] = hasNext;
 
-    for (const MangaPtr &entry : entries) {
+    for (const MangaPtr_t &entry : entries) {
       Json::Value json {};
       json["path"] = entry->path;
       json["coverUrl"] = entry->coverUrl;
@@ -258,7 +258,7 @@ void Api::getManga(const Request &req, Response &res)
     const std::string updateStr = req.get_param_value("update");
 
     auto startTime = std::chrono::high_resolution_clock::now();
-    const MangaPtr manga = ext->getManga(path);
+    const MangaPtr_t manga = ext->getManga(path);
 
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
@@ -278,7 +278,7 @@ void Api::getManga(const Request &req, Response &res)
       if (!manga->description.empty())
         root["description"] = manga->description;
 
-      root["status"] = manga->status;
+      root["status"] = (int)manga->status;
 
       for (const auto &artist : manga->artists)
         root["artists"].append(artist);
@@ -310,7 +310,7 @@ void Api::getChapters(const Request &req, Response &res)
     const std::string path = req.get_param_value("path");
 
     auto startTime = std::chrono::high_resolution_clock::now();
-    const std::vector<ChapterPtr> &chapters = ext->getChapters(path);
+    const std::vector<ChapterPtr_t> &chapters = ext->getChapters(path);
 
     auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
@@ -319,7 +319,7 @@ void Api::getChapters(const Request &req, Response &res)
     Json::FastWriter writer {};
 
     root["id"] = ext->id;
-    for (const ChapterPtr &chapter : chapters) {
+    for (const ChapterPtr_t &chapter : chapters) {
       Json::Value json {};
       json["path"] = chapter->path;
       json["name"] = chapter->name;
