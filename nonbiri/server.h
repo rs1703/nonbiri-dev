@@ -25,4 +25,9 @@ public:
   void start();
 };
 
+namespace App
+{
+extern Server *server;
+};  // namespace App
+
 #endif  // NONBIRI_SERVER_H_

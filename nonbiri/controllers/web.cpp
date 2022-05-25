@@ -2,14 +2,15 @@
 
 #include <nonbiri/controllers/macro.h>
 #include <nonbiri/controllers/web.h>
+#include <nonbiri/server.h>
 
 using httplib::Request;
 using httplib::Response;
 
-Web::Web(Server &s)
+Web::Web()
 {
   GET(R"(/?(history|updates|browse)?/?.*)", render);
-  s.set_mount_point("/assets", "./assets");
+  App::server->set_mount_point("/assets", "./assets");
 }
 
 void Web::render(const Request &req, Response &res)

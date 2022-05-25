@@ -4,32 +4,13 @@
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/web.h>
 #include <nonbiri/database.h>
+#include <nonbiri/manager.h>
 #include <nonbiri/server.h>
 
-App::App(int argc, char *argv[])
-{
-  parseOptions(argc, argv);
+bool App::daemonize = false;
+int App::port = 42081;
 
-  Database::initialize();
-  manager = new Manager();
-  server = new Server(port);
-
-  new Api(*server, *manager);
-  new Web(*server);
-}
-
-App::~App()
-{
-  delete manager;
-}
-
-void App::start()
-{
-  std::thread([this]() { manager->updateExtensionIndexes(); }).detach();
-  server->start();
-}
-
-void App::parseOptions(int argc, char *argv[])
+void App::initialize(int argc, char *argv[])
 {
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--daemonize") == 0 || strcmp(argv[i], "-d") == 0) {
@@ -39,4 +20,17 @@ void App::parseOptions(int argc, char *argv[])
       i++;
     }
   }
+
+  Database::initialize();
+  manager = new Manager();
+  server = new Server(port);
+
+  new Api();
+  new Web();
+}
+
+void App::start()
+{
+  std::thread([]() { manager->updateExtensionIndexes(); }).detach();
+  server->start();
 }

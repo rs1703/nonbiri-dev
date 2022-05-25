@@ -2,5 +2,6 @@
 
 int main(int argc, char *argv[])
 {
-  App(argc, argv).start();
+  App::initialize(argc, argv);
+  App::start();
 }

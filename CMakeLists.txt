@@ -34,6 +34,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
 # Indexer ====================================
 
 file(GLOB INDEX_SOURCES
+  nonbiri/models/*.cpp
+  nonbiri/cache.cpp
+  nonbiri/database.cpp
+  nonbiri/library.cpp
+  nonbiri/lru.cpp
   nonbiri/manager.cpp
   nonbiri/utils.cpp
   indexer/*.cpp)
@@ -63,12 +68,14 @@ if(SQLITE3_FOUND)
   include_directories(${SQLITE3_INCLUDE_DIR})
 
   target_link_libraries(${PROJECT_NAME} PRIVATE ${SQLITE3_LIBRARIES})
+  target_link_libraries(index PRIVATE ${SQLITE3_LIBRARIES})
 else()
   unset(SQLITE3_FOUND CACHE)
   hunter_add_package(sqlite3)
   find_package(sqlite3 CONFIG REQUIRED)
 
   target_link_libraries(${PROJECT_NAME} PRIVATE sqlite3::sqlite3)
+  target_link_libraries(index PRIVATE sqlite3::sqlite3)
 endif()
 
 pkg_check_modules(JSONCPP jsoncpp)

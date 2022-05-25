@@ -11,7 +11,8 @@
 #include <vector>
 
 #include <core/extension.h>
-#include <core/models.h>
+#include <nonbiri/models/chapter.h>
+#include <nonbiri/models/manga.h>
 
 using ExtensionMap = std::map<std::string, Extension *>;
 using ExtensionInfoMap = std::map<std::string, ExtensionInfo>;
@@ -48,17 +49,24 @@ public:
   void updateExtensionIndexes();
 
   //
-  std::tuple<std::vector<MangaPtr_t>, bool> getLatests(const std::string &id, int page);
-  std::tuple<std::vector<MangaPtr_t>, bool> searchManga(const std::string &id,
-                                                        int page,
-                                                        const std::string &query,
-                                                        const std::vector<FilterKV> &filters);
-  MangaPtr_t getManga(const std::string &id, const std::string &path);
-  std::vector<ChapterPtr_t> getChapters(const std::string &id, Manga_t &manga);
-  std::vector<std::string> getPages(const std::string &id, const std::string &path);
+  std::tuple<std::vector<std::shared_ptr<Manga>>, bool> getLatests(Extension &ext, int page);
+  std::tuple<std::vector<std::shared_ptr<Manga>>, bool> searchManga(Extension &ext,
+                                                                    int page,
+                                                                    const std::string &query,
+                                                                    const std::vector<FilterKV> &filters);
+
+  std::shared_ptr<Manga> getManga(Extension &ext, const std::string &path);
+  std::vector<std::shared_ptr<Chapter>> getChapters(Extension &ext, const std::string &path);
+  std::vector<std::shared_ptr<Chapter>> getChapters(Extension &ext, Manga &manga);
+  std::vector<std::string> getPages(Extension &ext, const std::string &path);
 
 private:
   std::vector<std::string> getLocalExtensionPaths();
 };
+
+namespace App
+{
+extern Manager *manager;
+};  // namespace App
 
 #endif  // NONBIRI_MANAGER_H_

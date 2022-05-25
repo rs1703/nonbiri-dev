@@ -2,15 +2,11 @@
 #define NONBIRI_CONTROLLERS_API_H_
 
 #include <httplib.h>
-#include <nonbiri/manager.h>
-#include <nonbiri/server.h>
 
 class Api
 {
-  Manager *manager = nullptr;
-
 public:
-  Api(Server &, Manager &);
+  Api();
 
   void getExtensions(const httplib::Request &, httplib::Response &);
   void refreshExtensions(const httplib::Request &, httplib::Response &);
@@ -24,6 +20,9 @@ public:
   void getManga(const httplib::Request &, httplib::Response &);
   void getChapters(const httplib::Request &, httplib::Response &);
   void getPages(const httplib::Request &, httplib::Response &);
+
+  void addManga(const httplib::Request &, httplib::Response &);
+  void removeManga(const httplib::Request &, httplib::Response &);
 };
 
 #endif  // NONBIRI_CONTROLLERS_API_H_

@@ -1,4 +1,4 @@
-#include <chrono>
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -9,13 +9,14 @@
 #include <json/json.h>
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/macro.h>
+#include <nonbiri/library.h>
 #include <nonbiri/manager.h>
 #include <nonbiri/server.h>
 
 using httplib::Request;
 using httplib::Response;
 
-Api::Api(Server &s, Manager &m) : manager(&m)
+Api::Api()
 {
   GET("/api/extensions/filters/?", getExtensionFilters);
   GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
@@ -29,6 +30,8 @@ Api::Api(Server &s, Manager &m) : manager(&m)
   GET("/api/metadata/?", getManga);
   GET("/api/chapters/?", getChapters);
   GET("/api/pages/?", getPages);
+  POST("/api/library/add", addManga);
+  DELETE("/api/library/remove", removeManga);
 }
 
 void Api::getExtensions(const Request &req, Response &res)
@@ -41,9 +44,9 @@ void Api::getExtensions(const Request &req, Response &res)
     if (isRefresh)
       res.headers.erase("refresh");
 
-    const ExtensionMap &extensions = manager->getExtensions();
+    const ExtensionMap &extensions = App::manager->getExtensions();
     if (req.matches[1].str() == "index" || isRefresh) {
-      const ExtensionInfoMap &indexes = manager->getIndexes();
+      const ExtensionInfoMap &indexes = App::manager->getIndexes();
       for (const auto &[_, info] : indexes) {
         Json::Value json {};
         json["id"] = info.id;
@@ -81,7 +84,7 @@ void Api::getExtensions(const Request &req, Response &res)
 void Api::refreshExtensions(const Request &req, Response &res)
 {
   try {
-    manager->updateExtensionIndexes();
+    App::manager->updateExtensionIndexes();
     res.set_header("refresh", "1");
     getExtensions(req, res);
   } catch (const std::exception &e) {
@@ -90,8 +93,8 @@ void Api::refreshExtensions(const Request &req, Response &res)
 }
 
 #define CHECK_EXTENSION_ID \
-  const std::string id = req.get_param_value("id"); \
-  if (id.empty()) { \
+  const std::string sourceId = req.get_param_value("sourceId"); \
+  if (sourceId.empty()) { \
     ABORT(STATUS_BAD_REQUEST, JSON_BAD_REQUEST, MIME_JSON); \
   }
 
@@ -99,15 +102,15 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
 {
   try {
     CHECK_EXTENSION_ID;
-    Extension *ext = manager->getExtension(id);
+    Extension *ext = App::manager->getExtension(sourceId);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
     const auto &filters = ext->getFilters();
+
     Json::Value root {};
     Json::FastWriter writer {};
-
     for (const auto &filter : filters)
       root.append(filter.toJson());
 
@@ -122,7 +125,7 @@ void Api::installExtension(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    manager->downloadExtension(id, false);
+    App::manager->downloadExtension(sourceId, false);
     getExtensions(req, res);
   } catch (const std::exception &e) {
     REPLY(STATUS_INTERNAL_SERVER_ERROR, JSON_EXCEPTION, MIME_JSON);
@@ -133,7 +136,7 @@ void Api::uninstallExtension(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    manager->removeExtension(id);
+    App::manager->removeExtension(sourceId);
     getExtensions(req, res);
   } catch (const std::exception &e) {
     REPLY(STATUS_INTERNAL_SERVER_ERROR, JSON_EXCEPTION, MIME_JSON);
@@ -144,7 +147,7 @@ void Api::updateExtension(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    manager->updateExtension(id);
+    App::manager->updateExtension(sourceId);
     getExtensions(req, res);
   } catch (const std::exception &e) {
     REPLY(STATUS_INTERNAL_SERVER_ERROR, JSON_EXCEPTION, MIME_JSON);
@@ -155,36 +158,22 @@ void Api::getLatests(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    Extension *ext = manager->getExtension(id);
+    Extension *ext = App::manager->getExtension(sourceId);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    const std::string pageStr = req.get_param_value("page");
-    const int page = std::max(1, pageStr.empty() ? 1 : std::stoi(pageStr));
-
-    auto startTime = std::chrono::high_resolution_clock::now();
-    const auto &[entries, hasNext] = ext->getLatests(page);
-
-    auto endTime = std::chrono::high_resolution_clock::now();
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    const std::string sPage = req.get_param_value("page");
+    const int page = std::max(1, sPage.empty() ? 1 : std::stoi(sPage));
+    const auto &[entries, hasNext] = App::manager->getLatests(*ext, page);
 
     Json::Value root {};
     Json::FastWriter writer {};
 
-    root["id"] = ext->id;
     root["page"] = page;
     root["hasNext"] = hasNext;
-
-    for (const MangaPtr_t entry : entries) {
-      Json::Value json;
-      json["path"] = entry->path;
-      json["coverUrl"] = entry->coverUrl;
-      json["title"] = entry->title;
-      root["entries"].append(json);
-    }
-
-    root["execDuration"] = duration;
+    for (const auto &manga : entries)
+      root["entries"].append(manga->toJson());
 
     REPLY(STATUS_OK, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
@@ -196,12 +185,12 @@ void Api::searchManga(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    Extension *ext = manager->getExtension(id);
+    Extension *ext = App::manager->getExtension(sourceId);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    int page = 1;
+    int page {1};
     std::string query {};
     std::vector<FilterKV> filters {};
 
@@ -216,28 +205,15 @@ void Api::searchManga(const Request &req, Response &res)
       }
     }
 
-    auto startTime = std::chrono::high_resolution_clock::now();
-    const auto &[entries, hasNext] = ext->searchManga(page, query, filters);
-
-    auto endTime = std::chrono::high_resolution_clock::now();
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    const auto &[entries, hasNext] = App::manager->searchManga(*ext, page, query, filters);
 
     Json::Value root {};
     Json::FastWriter writer {};
 
-    root["id"] = ext->id;
     root["page"] = page;
     root["hasNext"] = hasNext;
-
-    for (const MangaPtr_t &entry : entries) {
-      Json::Value json {};
-      json["path"] = entry->path;
-      json["coverUrl"] = entry->coverUrl;
-      json["title"] = entry->title;
-      root["entries"].append(json);
-    }
-
-    root["execDuration"] = duration;
+    for (const auto &manga : entries)
+      root["entries"].append(manga->toJson());
 
     REPLY(STATUS_OK, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
@@ -249,48 +225,18 @@ void Api::getManga(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    Extension *ext = manager->getExtension(id);
+    Extension *ext = App::manager->getExtension(sourceId);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
     const std::string path = req.get_param_value("path");
-    const std::string updateStr = req.get_param_value("update");
+    const auto manga = App::manager->getManga(*ext, path);
 
-    auto startTime = std::chrono::high_resolution_clock::now();
-    const MangaPtr_t manga = ext->getManga(path);
-
-    auto endTime = std::chrono::high_resolution_clock::now();
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-
-    Json::Value root;
-    Json::FastWriter writer;
-
-    root["id"] = ext->id;
-    if (manga != nullptr) {
-      root["path"] = manga->path;
-
-      if (!manga->coverUrl.empty())
-        root["coverUrl"] = manga->coverUrl;
-
-      root["title"] = manga->title;
-
-      if (!manga->description.empty())
-        root["description"] = manga->description;
-
-      root["status"] = (int)manga->status;
-
-      for (const auto &artist : manga->artists)
-        root["artists"].append(artist);
-
-      for (const auto &author : manga->authors)
-        root["authors"].append(author);
-
-      for (const auto &genre : manga->genres)
-        root["genres"].append(genre);
-    }
-
-    root["execDuration"] = duration;
+    Json::Value root {};
+    Json::FastWriter writer {};
+    if (manga != nullptr)
+      root = manga->toJson();
 
     REPLY(STATUS_OK, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
@@ -302,36 +248,18 @@ void Api::getChapters(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    Extension *ext = manager->getExtension(id);
+    Extension *ext = App::manager->getExtension(sourceId);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
     const std::string path = req.get_param_value("path");
-
-    auto startTime = std::chrono::high_resolution_clock::now();
-    const std::vector<ChapterPtr_t> &chapters = ext->getChapters(path);
-
-    auto endTime = std::chrono::high_resolution_clock::now();
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    const auto chapters = App::manager->getChapters(*ext, path);
 
     Json::Value root {};
     Json::FastWriter writer {};
-
-    root["id"] = ext->id;
-    for (const ChapterPtr_t &chapter : chapters) {
-      Json::Value json {};
-      json["path"] = chapter->path;
-      json["name"] = chapter->name;
-      json["publishedAt"] = chapter->publishedAt;
-
-      for (const auto &group : chapter->groups)
-        json["groups"].append(group);
-
-      root["entries"].append(json);
-    }
-
-    root["execDuration"] = duration;
+    for (const auto &chapter : chapters)
+      root["entries"].append(chapter->toJson());
 
     REPLY(STATUS_OK, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
@@ -343,29 +271,62 @@ void Api::getPages(const Request &req, Response &res)
 {
   try {
     CHECK_EXTENSION_ID;
-    Extension *ext = manager->getExtension(id);
+    Extension *ext = App::manager->getExtension(sourceId);
     if (ext == nullptr) {
       ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
     const std::string path = req.get_param_value("path");
-
-    auto startTime = std::chrono::high_resolution_clock::now();
-    const std::vector<std::string> &pages = ext->getPages(path);
-
-    auto endTime = std::chrono::high_resolution_clock::now();
-    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    const std::vector<std::string> pages = App::manager->getPages(*ext, path);
 
     Json::Value root {};
     Json::FastWriter writer {};
-
-    root["id"] = ext->id;
     for (const std::string &page : pages)
       root["pages"].append(page);
 
-    root["execDuration"] = duration;
+    REPLY(STATUS_OK, writer.write(root), MIME_JSON);
+  } catch (const std::exception &e) {
+    REPLY(STATUS_INTERNAL_SERVER_ERROR, JSON_EXCEPTION, MIME_JSON);
+  }
+}
+
+void Api::addManga(const Request &req, Response &res)
+{
+  try {
+    CHECK_EXTENSION_ID;
+    Extension *ext = App::manager->getExtension(sourceId);
+    if (ext == nullptr) {
+      ABORT(STATUS_NOT_FOUND, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
+    }
+
+    const std::string path = req.get_param_value("path");
+    const auto manga = App::manager->getManga(*ext, path);
+    if (manga == nullptr) {
+      ABORT(STATUS_NOT_FOUND, JSON_MANGA_NOT_FOUND, MIME_JSON);
+    }
+
+    Library::addManga(*manga);
+
+    Json::Value root {};
+    Json::FastWriter writer {};
+    if (manga != nullptr)
+      root = manga->toJson();
 
     REPLY(STATUS_OK, writer.write(root), MIME_JSON);
+  } catch (const std::exception &e) {
+    REPLY(STATUS_INTERNAL_SERVER_ERROR, JSON_EXCEPTION, MIME_JSON);
+  }
+}
+
+void Api::removeManga(const Request &req, Response &res)
+{
+  try {
+    const std::string id = req.get_param_value("id");
+    if (id.empty()) {
+      ABORT(STATUS_BAD_REQUEST, JSON_BAD_REQUEST, MIME_JSON);
+    }
+    Library::removeManga(std::stoll(id));
+    REPLY(STATUS_OK, "", MIME_JSON);
   } catch (const std::exception &e) {
     REPLY(STATUS_INTERNAL_SERVER_ERROR, JSON_EXCEPTION, MIME_JSON);
   }

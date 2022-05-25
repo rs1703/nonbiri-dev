@@ -2,13 +2,11 @@
 #define NONBIRI_CONTROLLERS_WEB_H_
 
 #include <httplib.h>
-#include <nonbiri/server.h>
 
 class Web
 {
 public:
-  Web(Server &);
-
+  Web();
   void render(const httplib::Request &, httplib::Response &);
 };
 

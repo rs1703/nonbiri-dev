@@ -1,9 +1,9 @@
 #include <mutex>
 
-#include <core/models.h>
 #include <nonbiri/lru.h>
+#include <nonbiri/models/manga.h>
 
-template class LRU<Manga_t>;
+template class LRU<Manga>;
 
 template<class T>
 LRU<T>::LRU(unsigned int maxSize) : mMaxSize {maxSize}
