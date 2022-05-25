@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS manga (
   title             TEXT NOT NULL,
   description       TEXT,
   status            INTEGER DEFAULT 0,
-  reading_status    INTEGER DEFAULT 0
+  reading_status    INTEGER DEFAULT 1
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS manga_uidx ON manga(source_id, path);
