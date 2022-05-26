@@ -19,13 +19,25 @@ std::shared_ptr<Manga> Library::getManga(const std::string &sourceId, const std:
   return std::make_shared<Manga>(*manga);
 }
 
+bool Library::hasManga(Manga &const manga)
+{
+  if (manga.id > 0)
+    return Manga::exists(manga.id);
+  return Manga::exists(manga.sourceId, manga.path);
+}
+
+bool Library::hasManga(const std::string &sourceId, const std::string &path)
+{
+  return Manga::exists(sourceId, path);
+}
+
 void Library::addManga(Manga &const manga)
 {
-  if (manga.id || Manga::exists(manga.sourceId, manga.path)) {
+  if (manga.id || Manga::exists(manga.sourceId, manga.path))
     manga.update();
-  } else {
+  else
     manga.save();
-  }
+  Cache::manga.set(manga.sourceId + manga.path, std::make_shared<Manga>(manga));
 }
 
 void Library::updateManga(Manga &const manga)
@@ -35,5 +47,9 @@ void Library::updateManga(Manga &const manga)
 
 void Library::removeManga(int64_t id)
 {
-  Manga::remove(id);
+  auto manga = getManga(id);
+  if (manga == nullptr)
+    return;
+  manga->remove();
+  Cache::manga.remove(manga->sourceId + manga->path);
 }

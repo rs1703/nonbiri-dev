@@ -77,10 +77,10 @@ void Chapter::deserialize(sqlite3_stmt *stmt)
 
 void Chapter::save()
 {
-  static const char *sql {
+  static constexpr const char *sql {
     "INSERT INTO chapter ("
-    "manga_id, source_id, updated_at, published_at, downloaded_at, last_read_at, last_read_page,"
-    "read_count, path, name, page_count, downloaded"
+    " manga_id, source_id, updated_at, published_at, downloaded_at, last_read_at, last_read_page,"
+    " read_count, path, name, page_count, downloaded"
     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   };
   sqlite3_stmt *stmt = nullptr;
@@ -135,7 +135,7 @@ void Chapter::save()
 
 Chapter *Chapter::find(int64_t id)
 {
-  static const char *sql {"SELECT * FROM chapter WHERE id = ?"};
+  static constexpr const char *sql {"SELECT * FROM chapter WHERE id = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
@@ -155,7 +155,7 @@ Chapter *Chapter::find(int64_t id)
 
 Chapter *Chapter::find(std::string sourceId, std::string path)
 {
-  static const char *sql {"SELECT * FROM chapter WHERE source_id = ? AND path = ?"};
+  static constexpr const char *sql {"SELECT * FROM chapter WHERE source_id = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);

@@ -22,7 +22,7 @@ void Entity::deserialize(sqlite3_stmt *stmt)
   if (stmt == nullptr)
     throw std::invalid_argument("stmt cannot be null");
   id = sqlite3_column_int64(stmt, 0);
-  name = (const char *)sqlite3_column_text(stmt, 1);
+  name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
 }
 
 void Entity::save(const std::string &tableName)

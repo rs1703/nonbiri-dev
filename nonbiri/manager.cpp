@@ -237,8 +237,11 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::getLatests(Extens
 {
   const auto [entries, hasNext] = ext.getLatests(page);
   std::vector<std::shared_ptr<Manga>> ret;
-  for (const Manga_t *manga : entries)
-    ret.push_back(std::make_shared<Manga>(ext.id, *manga));
+  for (const Manga_t *entry : entries) {
+    auto manga = std::make_shared<Manga>(ext.id, *entry);
+    manga->inLibrary = Library::hasManga(*manga);
+    ret.push_back(manga);
+  }
   return {ret, hasNext};
 }
 
@@ -249,8 +252,11 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(Exten
 {
   const auto &[entries, hasNext] = ext.searchManga(page, query, filters);
   std::vector<std::shared_ptr<Manga>> ret;
-  for (const Manga_t *manga : entries)
-    ret.push_back(std::make_shared<Manga>(ext.id, *manga));
+  for (const Manga_t *entry : entries) {
+    auto manga = std::make_shared<Manga>(ext.id, *entry);
+    manga->inLibrary = Library::hasManga(*manga);
+    ret.push_back(manga);
+  }
   return {ret, hasNext};
 }
 

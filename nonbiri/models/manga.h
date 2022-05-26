@@ -38,10 +38,14 @@ class Manga : public Manga_t
   std::vector<std::shared_ptr<Chapter>> chapters;
 
 public:
+  bool inLibrary {false};
+
+public:
   Manga() = default;
   Manga(const std::string &sourceId, const Manga_t &manga);
   Manga(sqlite3_stmt *stmt);
 
+  static void initialize();
   Json::Value toJson();
 
 protected:

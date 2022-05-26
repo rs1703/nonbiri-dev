@@ -10,6 +10,8 @@ struct Library
 {
   static std::shared_ptr<Manga> getManga(int64_t id);
   static std::shared_ptr<Manga> getManga(const std::string &sourceId, const std::string &path);
+  static bool hasManga(Manga &const manga);
+  static bool hasManga(const std::string &sourceId, const std::string &path);
 
   static void addManga(Manga &const manga);
   static void updateManga(Manga &const manga);
