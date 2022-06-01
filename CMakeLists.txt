@@ -37,10 +37,9 @@ file(GLOB INDEX_SOURCES
   nonbiri/models/*.cpp
   nonbiri/cache.cpp
   nonbiri/database.cpp
-  nonbiri/library.cpp
   nonbiri/lru.cpp
   nonbiri/manager.cpp
-  nonbiri/utils.cpp
+  nonbiri/utility.cpp
   indexer/*.cpp)
 add_executable(index ${DEPS} ${INDEX_SOURCES})
 target_compile_features(index PRIVATE cxx_std_17)

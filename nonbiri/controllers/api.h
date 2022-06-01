@@ -21,8 +21,7 @@ public:
   void getChapters(const httplib::Request &, httplib::Response &);
   void getPages(const httplib::Request &, httplib::Response &);
 
-  void addManga(const httplib::Request &, httplib::Response &);
-  void removeManga(const httplib::Request &, httplib::Response &);
+  void setMangaReadState(const httplib::Request &, httplib::Response &);
 };
 
 #endif  // NONBIRI_CONTROLLERS_API_H_

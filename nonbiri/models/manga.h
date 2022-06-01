@@ -7,72 +7,63 @@
 
 #include <core/models.h>
 #include <json/json.h>
-#include <nonbiri/models/entity.h>
 #include <sqlite3.h>
 
 enum class ReadingStatus
 {
-  Unknown,
+  None,
   Reading,
   Planned,
   OnHold,
   Dropped
 };
 
-struct Library;
 class Chapter;
 
 class Manga : public Manga_t
 {
-  friend class Library;
-
+public:
   int64_t id {};
   std::string sourceId {};
   int64_t addedAt {};
   int64_t updatedAt {};
   int64_t lastReadAt {};
-  int16_t lastViewedAt {};
+  int64_t lastViewedAt {};
   std::string customCoverUrl {};
   std::string bannerUrl {};
-  ReadingStatus readingStatus {ReadingStatus::Unknown};
-  std::vector<std::shared_ptr<Chapter>> chapters;
-
-public:
-  bool inLibrary {false};
+  ReadingStatus readingStatus {-1};
 
 public:
   Manga() = default;
   Manga(const std::string &sourceId, const Manga_t &manga);
   Manga(sqlite3_stmt *stmt);
+  ~Manga();
 
-  static void initialize();
+  bool operator==(const Manga &other) const;
   Json::Value toJson();
 
-protected:
-  void deserialize(sqlite3_stmt *stmt);
+  std::vector<std::shared_ptr<Chapter>> getChapters();
+  ReadingStatus getReadState();
+  void setReadState(ReadingStatus status);
 
-private:
   void save();
   void update();
   void remove();
 
-  void loadArtists();
-  void saveArtists();
-
-  void loadAuthors();
-  void saveAuthors();
-
-  void loadGenres();
-  void saveGenres();
-
-  static bool exists(int64_t id);
+  static std::shared_ptr<Manga> find(const std::string &sourceId, const std::string &path);
   static bool exists(const std::string &sourceId, const std::string &path);
-
-  static Manga *find(int64_t id);
-  static Manga *find(const std::string &sourceId, const std::string &path);
-
-  static void remove(int64_t id);
+  static ReadingStatus getReadState(const std::string &sourceId, const std::string &path);
+  static int64_t setReadState(ReadingStatus status, const std::string &sourceId, const std::string &path);
   static void remove(const std::string &sourceId, const std::string &path);
+
+private:
+  void loadArtists();
+  void loadAuthors();
+  void loadGenres();
+  void saveArtists();
+  void saveAuthors();
+  void saveGenres();
+  void deserialize(sqlite3_stmt *stmt);
 };
 
 #endif  // NONBIRI_MODELS_MANGA_H_

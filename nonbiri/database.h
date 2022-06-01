@@ -1,6 +1,7 @@
 #ifndef NONBIRI_DATABASE_H_
 #define NONBIRI_DATABASE_H_
 
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,20 @@
 
 namespace Database
 {
+class Tx
+{
+  static std::mutex mutex;
+  bool isCommitted {};
+  bool isRolledBack {};
+
+public:
+  Tx();
+  ~Tx();
+
+  void commit();
+  void rollback();
+};
+
 extern sqlite3 *instance;
 
 void initialize();

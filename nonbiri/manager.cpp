@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <filesystem>
 #include <iostream>
 #include <mutex>
@@ -9,9 +10,8 @@
 #include <core/utils.h>
 #include <json/json.h>
 #include <nonbiri/cache.h>
-#include <nonbiri/library.h>
 #include <nonbiri/manager.h>
-#include <nonbiri/utils.h>
+#include <nonbiri/utility.h>
 
 namespace fs = std::filesystem;
 typedef Extension *(*createExtFn)(void);
@@ -216,7 +216,7 @@ void Manager::updateExtensionIndexes()
   if (!reader.parse(res, root))
     throw std::runtime_error("Unable to parse extensions index: " + reader.getFormattedErrorMessages());
 
-  for (const auto &key : root.getMemberNames()) {
+  for (const std::string &key : root.getMemberNames()) {
     const Json::Value json = root[key];
     ExtensionInfo info {
       json["id"].asString(),
@@ -235,14 +235,17 @@ void Manager::updateExtensionIndexes()
 
 std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::getLatests(Extension &ext, int page)
 {
-  const auto [entries, hasNext] = ext.getLatests(page);
-  std::vector<std::shared_ptr<Manga>> ret;
-  for (const Manga_t *entry : entries) {
-    auto manga = std::make_shared<Manga>(ext.id, *entry);
-    manga->inLibrary = Library::hasManga(*manga);
-    ret.push_back(manga);
+  utils::ExecTime execTime("Manager::getLatests(ext, page)");
+  const auto &[entries, hasNext] = ext.getLatests(page);
+
+  std::vector<std::shared_ptr<Manga>> manga;
+  for (const Manga_t *e : entries) {
+    std::shared_ptr<Manga> entry = std::make_shared<Manga>(ext.id, *e);
+    entry->getReadState();
+    manga.push_back(entry);
+    delete e;
   }
-  return {ret, hasNext};
+  return {manga, hasNext};
 }
 
 std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(Extension &ext,
@@ -250,35 +253,48 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(Exten
                                                                            const std::string &query,
                                                                            const std::vector<FilterKV> &filters)
 {
+  utils::ExecTime execTime("Manager::searchManga(ext, page, query, filters)");
   const auto &[entries, hasNext] = ext.searchManga(page, query, filters);
-  std::vector<std::shared_ptr<Manga>> ret;
-  for (const Manga_t *entry : entries) {
-    auto manga = std::make_shared<Manga>(ext.id, *entry);
-    manga->inLibrary = Library::hasManga(*manga);
-    ret.push_back(manga);
+
+  std::vector<std::shared_ptr<Manga>> manga;
+  for (const Manga_t *e : entries) {
+    std::shared_ptr<Manga> entry = std::make_shared<Manga>(ext.id, *e);
+    entry->getReadState();
+    manga.push_back(entry);
+    delete e;
   }
-  return {ret, hasNext};
+  return {manga, hasNext};
 }
 
 std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path)
 {
-  std::string cacheKey {ext.id + path};
-  if (Cache::manga.has(cacheKey))
-    return Cache::manga.get(cacheKey);
+  utils::ExecTime execTime("Manager::getManga(ext, path)");
+  const std::string cacheKey {ext.id + path};
+  if (Cache::manga.has(cacheKey)) {
+    std::shared_ptr<Manga> manga = Cache::manga.get(cacheKey);
+    if (manga->id > 0)
+      Cache::manga.remove(cacheKey);
+    else
+      return manga;
+  }
 
-  std::shared_ptr<Manga> manga = nullptr;
   try {
-    manga = Library::getManga(ext.id, path);
+    const std::shared_ptr<Manga> manga = Manga::find(ext.id, path);
+    if (manga != nullptr)
+      return manga;
   } catch (const std::exception &e) {
     std::cerr << "Unable to get manga: " << e.what() << std::endl;
   }
 
-  if (manga == nullptr) {
-    try {
-      manga = std::make_shared<Manga>(ext.id, *ext.getManga(path));
-    } catch (const std::exception &e) {
-      std::cerr << "Unable to fetch manga: " << e.what() << std::endl;
+  std::shared_ptr<Manga> manga = nullptr;
+  try {
+    const Manga_t *m = ext.getManga(path);
+    if (m != nullptr) {
+      manga = std::make_shared<Manga>(ext.id, *m);
+      delete m;
     }
+  } catch (const std::exception &e) {
+    std::cerr << "Unable to fetch manga: " << e.what() << std::endl;
   }
 
   if (manga != nullptr)
@@ -288,24 +304,57 @@ std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path
 
 std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, const std::string &path)
 {
-  auto chapters = ext.getChapters(path);
-  std::vector<std::shared_ptr<Chapter>> ret;
-  for (const Chapter_t *chapter : chapters)
-    ret.push_back(std::make_shared<Chapter>(ext.id, *chapter));
-  return ret;
+  utils::ExecTime execTime("Manager::getChapters(ext, path)");
+  std::shared_ptr<Manga> manga = getManga(ext, path);
+  if (manga == nullptr)
+    throw std::runtime_error("Unable to get manga");
+  return getChapters(ext, *manga);
 }
 
 std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, Manga &manga)
 {
-  auto chapters = ext.getChapters(manga);
-  std::vector<std::shared_ptr<Chapter>> ret;
-  for (const Chapter_t *chapter : chapters)
-    ret.push_back(std::make_shared<Chapter>(ext.id, *chapter));
-  return ret;
+  utils::ExecTime execTime("Manager::getChapters(ext, manga)");
+  try {
+    std::vector<std::shared_ptr<Chapter>> chapters = manga.getChapters();
+    if (!chapters.empty())
+      return chapters;
+  } catch (const std::exception &e) {
+    std::cerr << "Unable to get chapters: " << e.what() << std::endl;
+  }
+
+  const std::string cacheKey {ext.id + manga.path};
+  if (Cache::chapters.has(cacheKey)) {
+    std::vector<std::shared_ptr<Chapter>> chapters = Cache::chapters.get(cacheKey);
+    if (manga.id > 0) {
+      Chapter::saveAll(chapters, manga.id);
+      Cache::chapters.remove(cacheKey);
+      return getChapters(ext, manga);
+    }
+    return chapters;
+  }
+
+  std::vector<std::shared_ptr<Chapter>> chapters {};
+  try {
+    const std::vector<Chapter_t *> entries = ext.getChapters(manga.path);
+    for (const Chapter_t *e : entries) {
+      std::shared_ptr<Chapter> entry = std::make_shared<Chapter>(manga.id, ext.id, *e);
+      chapters.push_back(entry);
+      delete e;
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "Unable to fetch chapters: " << e.what() << std::endl;
+  }
+
+  if (manga.id > 0)
+    Chapter::saveAll(chapters);
+  else if (!chapters.empty())
+    Cache::chapters.set(cacheKey, chapters);
+  return chapters;
 }
 
 std::vector<std::string> Manager::getPages(Extension &ext, const std::string &path)
 {
+  utils::ExecTime execTime("Manager::getPages(ext, path)");
   return ext.getPages(path);
 }
 

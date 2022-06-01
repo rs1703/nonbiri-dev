@@ -24,20 +24,21 @@ CREATE TABLE IF NOT EXISTS manga (
   updated_at        INTEGER,
 
   last_read_at      INTEGER,
-  last_viewed_at    INTEGER,
+  last_viewed_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
 
   path              TEXT NOT NULL,
   cover_url         TEXT NOT NULL,
-  custom_cover_url  TEXT,
-  banner_url        TEXT,
+  custom_cover_url  TEXT DEFAULT "",
+  banner_url        TEXT DEFAULT "",
   
   title             TEXT NOT NULL,
-  description       TEXT,
+  description       TEXT DEFAULT "",
   status            INTEGER DEFAULT 0,
   reading_status    INTEGER DEFAULT 1
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS manga_uidx ON manga(source_id, path);
+CREATE INDEX IF NOT EXISTS manga_source_id_idx ON manga(source_id);
 CREATE INDEX IF NOT EXISTS manga_added_at_idx ON manga(added_at);
 CREATE INDEX IF NOT EXISTS manga_updated_at_idx ON manga(updated_at);
 CREATE INDEX IF NOT EXISTS manga_last_read_at_idx ON manga(last_read_at);

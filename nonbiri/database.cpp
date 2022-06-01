@@ -4,8 +4,35 @@
 #include <stdexcept>
 
 #include <nonbiri/database.h>
+#include <nonbiri/utility.h>
 
 sqlite3 *Database::instance = nullptr;
+std::mutex Database::Tx::mutex;
+
+Database::Tx::Tx()
+{
+  mutex.lock();
+  sqlite3_exec(Database::instance, "BEGIN TRANSACTION", nullptr, nullptr, nullptr);
+}
+
+Database::Tx::~Tx()
+{
+  if (!isCommitted && !isRolledBack)
+    commit();
+  mutex.unlock();
+}
+
+void Database::Tx::commit()
+{
+  sqlite3_exec(Database::instance, "COMMIT TRANSACTION", nullptr, nullptr, nullptr);
+  isCommitted = true;
+}
+
+void Database::Tx::rollback()
+{
+  sqlite3_exec(Database::instance, "ROLLBACK TRANSACTION", nullptr, nullptr, nullptr);
+  isRolledBack = true;
+}
 
 void Database::initialize()
 {

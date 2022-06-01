@@ -1,40 +1,32 @@
 #ifndef NONBIRI_MODELS_ENTITY_H_
 #define NONBIRI_MODELS_ENTITY_H_
 
+#include <memory>
 #include <string>
 
 #include <json/json.h>
 #include <sqlite3.h>
 
-struct Library;
-class Manga;
-class Chapter;
-
 class Entity
 {
 public:
-  friend class Library;
-  friend class Manga;
-  friend class Chapter;
-
   int64_t id {};
   std::string name {};
 
 public:
+  Entity() = default;
   Entity(const std::string &name);
   Entity(sqlite3_stmt *stmt);
+  ~Entity();
 
+  bool operator==(const Entity &other) const;
   Json::Value toJson();
+  void save(const std::string &tableName);
 
-protected:
-  void deserialize(sqlite3_stmt *stmt);
+  static std::shared_ptr<Entity> find(const std::string &tableName, const std::string &name);
 
 private:
-  void save(const std::string &tableName);
-  void reload(const std::string &tableName);
-
-  static Entity *find(const std::string &tableName, int64_t id);
-  static Entity *find(const std::string &tableName, const std::string &name);
+  void deserialize(sqlite3_stmt *stmt);
 };
 
 #endif  // NONBIRI_MODELS_ENTITY_H_

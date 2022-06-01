@@ -3,8 +3,19 @@
 #else
 #  include <dlfcn.h>
 #endif
+#include <iostream>
+
 #include <curl/curl.h>
-#include <nonbiri/utils.h>
+#include <nonbiri/utility.h>
+
+utils::ExecTime::ExecTime(const std::string &name) : name(name), start(std::chrono::high_resolution_clock::now()) {}
+
+utils::ExecTime::~ExecTime()
+{
+  end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> duration = end - start;
+  std::cout << name << " " << duration.count() << "ms" << std::endl;
+}
 
 void *utils::loadLibrary(const std::string &path)
 {

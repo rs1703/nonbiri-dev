@@ -1,10 +1,21 @@
 #ifndef NONBIRI_UTILS_H_
 #define NONBIRI_UTILS_H_
 
+#include <chrono>
 #include <string>
 
 namespace utils
 {
+struct ExecTime
+{
+  const std::string name;
+  std::chrono::high_resolution_clock::time_point start;
+  std::chrono::high_resolution_clock::time_point end;
+
+  ExecTime(const std::string &name);
+  ~ExecTime();
+};
+
 void *loadLibrary(const std::string &path);
 void *getSymbol(void *handle, const std::string &symbol);
 void freeLibrary(void *handle);

@@ -5,11 +5,10 @@
 #include <nonbiri/controllers/web.h>
 #include <nonbiri/database.h>
 #include <nonbiri/manager.h>
-#include <nonbiri/models/manga.h>
 #include <nonbiri/server.h>
 
-bool App::daemonize = false;
-int App::port = 42081;
+bool App::daemonize {false};
+int App::port {42081};
 
 void App::initialize(int argc, char *argv[])
 {
@@ -23,8 +22,6 @@ void App::initialize(int argc, char *argv[])
   }
 
   Database::initialize();
-  Manga::initialize();
-
   manager = new Manager();
   server = new Server(port);
 

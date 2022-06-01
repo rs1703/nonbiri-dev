@@ -1,12 +1,12 @@
 #include <iostream>
-#include <map>
 #include <stdexcept>
 
+#include <nonbiri/cache.h>
 #include <nonbiri/database.h>
+#include <nonbiri/models/chapter.h>
+#include <nonbiri/models/entity.h>
 #include <nonbiri/models/manga.h>
-
-std::map<int64_t, std::string> existsCacheMap;
-std::map<std::string, int64_t> existsCacheMap_;
+#include <nonbiri/utility.h>
 
 Manga::Manga(const std::string &sourceId, const Manga_t &manga) : sourceId(sourceId), Manga_t(manga) {}
 
@@ -15,23 +15,14 @@ Manga::Manga(sqlite3_stmt *stmt)
   deserialize(stmt);
 }
 
-void Manga::initialize()
+Manga::~Manga()
 {
-  static constexpr const char *sql {"SELECT id, source_id, path FROM manga"};
-  sqlite3_stmt *stmt;
+  // std::cout << "Manga::~Manga()" << std::endl;
+}
 
-  if (sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr) != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    const int64_t id = sqlite3_column_int64(stmt, 0);
-    const std::string sourceId = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-    const std::string path = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
-
-    existsCacheMap.emplace(id, sourceId + path);
-    existsCacheMap_.emplace(sourceId + path, id);
-  }
-  sqlite3_finalize(stmt);
+bool Manga::operator==(const Manga &other) const
+{
+  return id == other.id || sourceId == other.sourceId && path == other.path;
 }
 
 Json::Value Manga::toJson()
@@ -61,117 +52,163 @@ Json::Value Manga::toJson()
     root["title"] = title;
   if (!description.empty())
     root["description"] = description;
-  if ((int)status > 0)
-    root["status"] = (int)status;
-  if ((int)readingStatus > 0)
-    root["readingStatus"] = (int)readingStatus;
+  if (static_cast<int>(status) > 0)
+    root["status"] = static_cast<int>(status);
+  if (static_cast<int>(readingStatus) > 0)
+    root["readingStatus"] = static_cast<int>(readingStatus);
   if (artists.size() > 0)
-    for (auto &artist : artists)
+    for (const std::string &artist : artists)
       root["artists"].append(artist);
   if (authors.size() > 0)
-    for (auto &author : authors)
+    for (const std::string &author : authors)
       root["authors"].append(author);
   if (genres.size() > 0)
-    for (auto &genre : genres)
+    for (const std::string &genre : genres)
       root["genres"].append(genre);
-  if (id == 0 && inLibrary)
-    root["inLibrary"] = inLibrary;
   return root;
 }
 
-void Manga::deserialize(sqlite3_stmt *stmt)
+std::vector<std::shared_ptr<Chapter>> Manga::getChapters()
 {
-  if (stmt == nullptr)
-    throw std::invalid_argument("stmt cannot be null");
+  return Chapter::findAll(id);
+}
 
-  id = sqlite3_column_int64(stmt, 0);
-  sourceId = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1)));
-  addedAt = sqlite3_column_int64(stmt, 2);
-  updatedAt = sqlite3_column_int64(stmt, 3);
-  lastReadAt = sqlite3_column_int64(stmt, 4);
-  lastViewedAt = sqlite3_column_int64(stmt, 5);
-  path = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6)));
-  coverUrl = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7)));
-  customCoverUrl = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8)));
-  bannerUrl = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 9)));
-  title = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 10)));
-  description = std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 11)));
-  status = static_cast<MangaStatus>(sqlite3_column_int(stmt, 12));
-  readingStatus = static_cast<ReadingStatus>(sqlite3_column_int(stmt, 13));
+ReadingStatus Manga::getReadState()
+{
+  if (static_cast<int>(readingStatus) < 0)
+    readingStatus = getReadState(sourceId, path);
+  return readingStatus;
+}
+
+void Manga::setReadState(ReadingStatus status)
+{
+  updatedAt = setReadState(status, sourceId, path);
 }
 
 void Manga::save()
 {
+  utils::ExecTime execTime("Manga::save()");
   static constexpr const char *sql {
     "INSERT INTO manga ("
-    " source_id, updated_at, last_read_at, last_viewed_at, path, cover_url, "
-    " custom_cover_url, banner_url, title, description, status, reading_status"
-    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    " source_id, path, cover_url,"
+    " title, description, status"
+    ") VALUES (?, ?, ?, ?, ?, ?)",
   };
   sqlite3_stmt *stmt = nullptr;
 
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 2, updatedAt);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 3, lastReadAt);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 4, lastViewedAt);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 5, path.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 6, coverUrl.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 7, customCoverUrl.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 8, bannerUrl.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 9, title.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 10, description.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int(stmt, 11, (int)status);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int(stmt, 12, (int)readingStatus);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_step(stmt);
+  Database::Tx t;
+  try {
+    int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 3, coverUrl.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 4, title.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 5, description.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_int(stmt, 6, static_cast<int>(status));
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_step(stmt);
 
-  if (exit == SQLITE_DONE)
-    id = sqlite3_last_insert_rowid(Database::instance);
-  sqlite3_finalize(stmt);
-  if (exit != SQLITE_DONE)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    if (exit == SQLITE_DONE)
+      id = sqlite3_last_insert_rowid(Database::instance);
+    sqlite3_finalize(stmt);
+    if (exit != SQLITE_DONE)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
 
-  saveArtists();
-  saveAuthors();
-  saveGenres();
-
-  existsCacheMap.emplace(id, sourceId + path);
-  existsCacheMap_.emplace(sourceId + path, id);
+    saveArtists();
+    saveAuthors();
+    saveGenres();
+  } catch (...) {
+    t.rollback();
+    throw;
+  }
+  Cache::manga.remove(sourceId + path);
 }
 
 void Manga::update()
 {
+  utils::ExecTime execTime("Manga::update()");
   static constexpr const char *sql {
-    "UPDATE manga SET source_id = ?, updated_at = ?, last_read_at = ?, last_viewed_at = ?, path = ?, "
-    " cover_url = ?, custom_cover_url = ?, banner_url = ?, title = ?, description = ?, status = ?, reading_status = ? "
+    "UPDATE manga SET updated_at = ?, path = ?, cover_url = ?,"
+    " custom_cover_url = ?, banner_url = ?, title = ?, description = ?, "
+    " status = ?, reading_status = ? "
     "WHERE id = ?",
   };
+  sqlite3_stmt *stmt = nullptr;
+  int64_t now {time(nullptr)};
+
+  Database::Tx t;
+  try {
+    int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_int64(stmt, 1, now);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 3, coverUrl.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 4, customCoverUrl.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 5, bannerUrl.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 6, title.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 7, description.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_int(stmt, 8, static_cast<int>(status));
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_int(stmt, 9, static_cast<int>(readingStatus));
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_int64(stmt, 10, id);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (exit != SQLITE_DONE)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+
+    updatedAt = now;
+    saveArtists();
+    saveAuthors();
+    saveGenres();
+  } catch (...) {
+    t.rollback();
+    throw;
+  }
+}
+
+void Manga::remove()
+{
+  remove(sourceId, path);
+}
+
+bool Manga::exists(const std::string &sourceId, const std::string &path)
+{
+  static constexpr const char *sql {"SELECT 1 FROM manga WHERE source_id = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
@@ -180,58 +217,131 @@ void Manga::update()
   exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 2, updatedAt);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 3, lastReadAt);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 4, lastViewedAt);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 5, path.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 6, coverUrl.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 7, customCoverUrl.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 8, bannerUrl.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 9, title.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 10, description.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int(stmt, 11, (int)status);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int(stmt, 12, (int)readingStatus);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int(stmt, 13, id);
+  exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
   exit = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
-  if (exit != SQLITE_DONE)
+
+  if (exit != SQLITE_ROW && exit != SQLITE_DONE)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
-
-  saveArtists();
-  saveAuthors();
-  saveGenres();
-
-  existsCacheMap.emplace(id, sourceId + path);
-  existsCacheMap_.emplace(sourceId + path, id);
+  return exit == SQLITE_ROW;
 }
 
-void Manga::remove()
+ReadingStatus Manga::getReadState(const std::string &sourceId, const std::string &path)
 {
-  remove(id);
+  static constexpr const char *sql {"SELECT reading_status FROM manga WHERE source_id = ? AND path = ?"};
+  sqlite3_stmt *stmt = nullptr;
+
+  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_step(stmt);
+
+  ReadingStatus readingStatus {ReadingStatus::None};
+  if (exit == SQLITE_ROW)
+    readingStatus = (ReadingStatus)sqlite3_column_int(stmt, 0);
+  sqlite3_finalize(stmt);
+  return readingStatus;
+}
+
+std::shared_ptr<Manga> Manga::find(const std::string &sourceId, const std::string &path)
+{
+  static constexpr const char *sql {"SELECT * FROM manga WHERE source_id = ? AND path = ?"};
+  sqlite3_stmt *stmt = nullptr;
+
+  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_step(stmt);
+
+  std::shared_ptr<Manga> manga = nullptr;
+  if (exit == SQLITE_ROW)
+    manga = std::make_shared<Manga>(stmt);
+  sqlite3_finalize(stmt);
+  if (manga != nullptr) {
+    manga->loadArtists();
+    manga->loadAuthors();
+    manga->loadGenres();
+  }
+  return manga;
+}
+
+int64_t Manga::setReadState(ReadingStatus status, const std::string &sourceId, const std::string &path)
+{
+  utils::ExecTime execTime("Manga::setReadState(status, sourceId, path, manga)");
+  static constexpr const char *sql {
+    "UPDATE manga SET reading_status = ?, updated_at = ?"
+    " WHERE source_id = ? AND path = ?",
+  };
+  sqlite3_stmt *stmt = nullptr;
+  int64_t now {time(nullptr)};
+
+  Database::Tx t;
+  try {
+    int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_int(stmt, 1, static_cast<int>(status));
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_int64(stmt, 2, now);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 3, sourceId.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 4, path.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (exit != SQLITE_DONE)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  } catch (...) {
+    t.rollback();
+    throw;
+  }
+  return now;
+}
+
+void Manga::remove(const std::string &sourceId, const std::string &path)
+{
+  utils::ExecTime execTime("Manga::remove(sourceId, path)");
+  static constexpr const char *sql {"DELETE FROM manga WHERE source_id = ? AND path = ?"};
+  sqlite3_stmt *stmt = nullptr;
+
+  Database::Tx t;
+  try {
+    int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
+    if (exit != SQLITE_OK)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+    exit = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (exit != SQLITE_DONE)
+      throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  } catch (...) {
+    t.rollback();
+    throw;
+  }
 }
 
 void Manga::loadArtists()
@@ -249,12 +359,51 @@ void Manga::loadArtists()
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
   while (sqlite3_step(stmt) == SQLITE_ROW)
-    artists.push_back(std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
+    artists.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+  sqlite3_finalize(stmt);
+}
+
+void Manga::loadAuthors()
+{
+  static constexpr const char *sql {
+    "SELECT name FROM author"
+    " WHERE id IN (SELECT author_id FROM manga_authors WHERE manga_id = ?)",
+  };
+  sqlite3_stmt *stmt = nullptr;
+
+  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_bind_int(stmt, 1, id);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  while (sqlite3_step(stmt) == SQLITE_ROW)
+    authors.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+  sqlite3_finalize(stmt);
+}
+
+void Manga::loadGenres()
+{
+  static constexpr const char *sql {
+    "SELECT name FROM genre"
+    " WHERE id IN (SELECT genre_id FROM manga_genres WHERE manga_id = ?)",
+  };
+  sqlite3_stmt *stmt = nullptr;
+
+  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  exit = sqlite3_bind_int(stmt, 1, id);
+  if (exit != SQLITE_OK)
+    throw std::runtime_error(sqlite3_errmsg(Database::instance));
+  while (sqlite3_step(stmt) == SQLITE_ROW)
+    genres.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
   sqlite3_finalize(stmt);
 }
 
 void Manga::saveArtists()
 {
+  utils::ExecTime execTime("Manga::saveArtists()");
   static constexpr const char *deleteSql {"DELETE FROM manga_artists WHERE manga_id = ?"};
   static constexpr const char *insertSql {
     "INSERT INTO manga_artists (manga_id, author_id)"
@@ -276,22 +425,19 @@ void Manga::saveArtists()
 
   static constexpr const char *k {"author"};
   for (const std::string &name : artists) {
-    Entity *artist = Entity::find(k, name);
+    std::shared_ptr<Entity> artist = Entity::find(k, name);
     if (artist == nullptr) {
-      artist = new Entity(name);
+      artist = std::make_shared<Entity>(name);
       artist->save(k);
     }
 
-    int64_t artistId = artist->id;
-    delete artist;
-
-    int exit = sqlite3_prepare_v2(Database::instance, insertSql, -1, &stmt, nullptr);
+    exit = sqlite3_prepare_v2(Database::instance, insertSql, -1, &stmt, nullptr);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_bind_int64(stmt, 1, id);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
-    exit = sqlite3_bind_int64(stmt, 2, artistId);
+    exit = sqlite3_bind_int64(stmt, 2, artist->id);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_step(stmt);
@@ -301,27 +447,9 @@ void Manga::saveArtists()
   }
 }
 
-void Manga::loadAuthors()
-{
-  static constexpr const char *sql {
-    "SELECT name FROM author"
-    " WHERE id IN (SELECT author_id FROM manga_authors WHERE manga_id = ?)",
-  };
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int(stmt, 1, id);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  while (sqlite3_step(stmt) == SQLITE_ROW)
-    authors.push_back(std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
-  sqlite3_finalize(stmt);
-}
-
 void Manga::saveAuthors()
 {
+  utils::ExecTime execTime("Manga::saveAuthors()");
   static constexpr const char *deleteSql {"DELETE FROM manga_authors WHERE manga_id = ?"};
   static constexpr const char *insertSql {
     "INSERT INTO manga_authors (manga_id, author_id)"
@@ -343,22 +471,19 @@ void Manga::saveAuthors()
 
   static constexpr const char *k {"author"};
   for (const std::string &name : authors) {
-    Entity *author = Entity::find(k, name);
+    std::shared_ptr<Entity> author = Entity::find(k, name);
     if (author == nullptr) {
-      author = new Entity(name);
+      author = std::make_shared<Entity>(name);
       author->save(k);
     }
 
-    int64_t authorId = author->id;
-    delete author;
-
-    int exit = sqlite3_prepare_v2(Database::instance, insertSql, -1, &stmt, nullptr);
+    exit = sqlite3_prepare_v2(Database::instance, insertSql, -1, &stmt, nullptr);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_bind_int64(stmt, 1, id);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
-    exit = sqlite3_bind_int64(stmt, 2, authorId);
+    exit = sqlite3_bind_int64(stmt, 2, author->id);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_step(stmt);
@@ -368,27 +493,9 @@ void Manga::saveAuthors()
   }
 }
 
-void Manga::loadGenres()
-{
-  static constexpr const char *sql {
-    "SELECT name FROM genre"
-    " WHERE id IN (SELECT genre_id FROM manga_genres WHERE manga_id = ?)",
-  };
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int(stmt, 1, id);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  while (sqlite3_step(stmt) == SQLITE_ROW)
-    genres.push_back(std::string(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0))));
-  sqlite3_finalize(stmt);
-}
-
 void Manga::saveGenres()
 {
+  utils::ExecTime execTime("Manga::saveGenres()");
   static constexpr const char *deleteSql {"DELETE FROM manga_genres WHERE manga_id = ?"};
   static constexpr const char *insertSql {
     "INSERT INTO manga_genres (manga_id, genre_id)"
@@ -410,22 +517,19 @@ void Manga::saveGenres()
 
   static constexpr const char *k {"genre"};
   for (const std::string &name : genres) {
-    Entity *genre = Entity::find(k, name);
+    std::shared_ptr<Entity> genre = Entity::find(k, name);
     if (genre == nullptr) {
-      genre = new Entity(name);
+      genre = std::make_shared<Entity>(name);
       genre->save(k);
     }
 
-    int64_t genreId = genre->id;
-    delete genre;
-
-    int exit = sqlite3_prepare_v2(Database::instance, insertSql, -1, &stmt, nullptr);
+    exit = sqlite3_prepare_v2(Database::instance, insertSql, -1, &stmt, nullptr);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_bind_int64(stmt, 1, id);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
-    exit = sqlite3_bind_int64(stmt, 2, genreId);
+    exit = sqlite3_bind_int64(stmt, 2, genre->id);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_step(stmt);
@@ -435,151 +539,23 @@ void Manga::saveGenres()
   }
 }
 
-bool Manga::exists(int64_t id)
+void Manga::deserialize(sqlite3_stmt *stmt)
 {
-  if (existsCacheMap.find(id) != existsCacheMap.end())
-    return true;
+  if (stmt == nullptr)
+    throw std::invalid_argument("stmt cannot be null");
 
-  static constexpr const char *sql {"SELECT 1 FROM manga WHERE id = ?"};
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 1, id);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-
-  if (exit != SQLITE_ROW && exit != SQLITE_DONE)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  return exit == SQLITE_ROW;
-}
-
-bool Manga::exists(const std::string &sourceId, const std::string &path)
-{
-  if (existsCacheMap_.find(sourceId + path) != existsCacheMap_.end())
-    return true;
-
-  static constexpr const char *sql {"SELECT 1 FROM manga WHERE source_id = ? AND path = ?"};
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-
-  if (exit != SQLITE_ROW && exit != SQLITE_DONE)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  return exit == SQLITE_ROW;
-}
-
-Manga *Manga::find(int64_t id)
-{
-  static constexpr const char *sql {"SELECT * FROM manga WHERE id = ?"};
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 1, id);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_step(stmt);
-
-  Manga *manga = nullptr;
-  if (exit == SQLITE_ROW)
-    manga = new Manga(stmt);
-  sqlite3_finalize(stmt);
-  if (manga != nullptr) {
-    manga->loadArtists();
-    manga->loadAuthors();
-    manga->loadGenres();
-  }
-  return manga;
-}
-
-Manga *Manga::find(const std::string &sourceId, const std::string &path)
-{
-  static constexpr const char *sql {"SELECT * FROM manga WHERE source_id = ? AND path = ?"};
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_step(stmt);
-
-  Manga *manga = nullptr;
-  if (exit == SQLITE_ROW)
-    manga = new Manga(stmt);
-  sqlite3_finalize(stmt);
-  if (manga != nullptr) {
-    manga->loadArtists();
-    manga->loadAuthors();
-    manga->loadGenres();
-  }
-  return manga;
-}
-
-void Manga::remove(int64_t id)
-{
-  static constexpr const char *sql {"DELETE FROM manga WHERE id = ?"};
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_int64(stmt, 1, id);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-  if (exit != SQLITE_DONE)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-
-  auto it = existsCacheMap.find(id);
-  if (it == existsCacheMap.end())
-    return;
-  existsCacheMap_.erase(it->second);
-  existsCacheMap.erase(it);
-}
-
-void Manga::remove(const std::string &sourceId, const std::string &path)
-{
-  static constexpr const char *sql {"DELETE FROM manga WHERE source_id = ? AND path = ?"};
-  sqlite3_stmt *stmt = nullptr;
-
-  int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
-  if (exit != SQLITE_OK)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_step(stmt);
-  sqlite3_finalize(stmt);
-  if (exit != SQLITE_DONE)
-    throw std::runtime_error(sqlite3_errmsg(Database::instance));
-
-  auto it = existsCacheMap_.find(sourceId + path);
-  if (it == existsCacheMap_.end())
-    return;
-  existsCacheMap.erase(it->second);
-  existsCacheMap_.erase(it);
+  id = sqlite3_column_int64(stmt, 0);
+  sourceId = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+  addedAt = sqlite3_column_int64(stmt, 2);
+  updatedAt = sqlite3_column_int64(stmt, 3);
+  lastReadAt = sqlite3_column_int64(stmt, 4);
+  lastViewedAt = sqlite3_column_int64(stmt, 5);
+  path = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+  coverUrl = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
+  customCoverUrl = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8));
+  bannerUrl = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 9));
+  title = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 10));
+  description = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 11));
+  status = static_cast<MangaStatus>(sqlite3_column_int(stmt, 12));
+  readingStatus = static_cast<ReadingStatus>(sqlite3_column_int(stmt, 13));
 }
