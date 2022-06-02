@@ -30,6 +30,13 @@ add_executable(${PROJECT_NAME} ${DEPS} ${MAIN_SOURCES})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
 
+if(UNIX)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+
+  set(LIBRARIES ${LIBRARIES} Threads::Threads -ldl)
+endif()
+
 # Indexer ====================================
 
 file(GLOB INDEX_SOURCES
@@ -50,43 +57,40 @@ pkg_check_modules(SQLITE3 sqlite3)
 if(SQLITE3_FOUND)
   include_directories(${SQLITE3_INCLUDE_DIR})
 
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${SQLITE3_LIBRARIES})
-  target_link_libraries(index PRIVATE ${SQLITE3_LIBRARIES})
+  set(LIBRARIES ${LIBRARIES} ${SQLITE3_LIBRARIES})
 else()
   unset(SQLITE3_FOUND CACHE)
   hunter_add_package(sqlite3)
   find_package(sqlite3 CONFIG REQUIRED)
 
-  target_link_libraries(${PROJECT_NAME} PRIVATE sqlite3::sqlite3)
-  target_link_libraries(index PRIVATE sqlite3::sqlite3)
+  set(LIBRARIES ${LIBRARIES} sqlite3::sqlite3)
 endif()
 
 pkg_check_modules(JSONCPP jsoncpp)
 if(JSONCPP_FOUND)
   include_directories(${JSONCPP_INCLUDE_DIR})
 
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${JSONCPP_LIBRARIES})
-  target_link_libraries(index PRIVATE ${JSONCPP_LIBRARIES})
+  set(LIBRARIES ${LIBRARIES} ${JSONCPP_LIBRARIES})
 else()
   unset(JSONCPP_FOUND CACHE)
   hunter_add_package(jsoncpp)
   find_package(jsoncpp CONFIG REQUIRED)
 
-  target_link_libraries(${PROJECT_NAME} PRIVATE jsoncpp_lib_static)
-  target_link_libraries(index PRIVATE jsoncpp_lib_static)
+  set(LIBRARIES ${LIBRARIES} jsoncpp_lib_static)
 endif()
 
 pkg_check_modules(GUMBO gumbo)
 if(GUMBO_FOUND)
   include_directories(${GUMBO_INCLUDE_DIR})
 
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${GUMBO_LIBRARIES})
-  target_link_libraries(index PRIVATE ${GUMBO_LIBRARIES})
+  set(LIBRARIES ${LIBRARIES} ${GUMBO_LIBRARIES})
 else()
   unset(GUMBO_FOUND CACHE)
   hunter_add_package(gumbo)
   find_package(gumbo CONFIG REQUIRED)
 
-  target_link_libraries(${PROJECT_NAME} PRIVATE gumbo::gumbo)
-  target_link_libraries(index PRIVATE gumbo::gumbo)
+  set(LIBRARIES ${LIBRARIES} gumbo::gumbo)
 endif()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBRARIES})
+target_link_libraries(index PRIVATE ${LIBRARIES})
