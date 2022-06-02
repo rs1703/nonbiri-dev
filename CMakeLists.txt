@@ -30,13 +30,6 @@ add_executable(${PROJECT_NAME} ${DEPS} ${MAIN_SOURCES})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
 
-if(UNIX)
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-
-  set(LIBRARIES ${LIBRARIES} Threads::Threads -ldl)
-endif()
-
 # Indexer ====================================
 
 file(GLOB INDEX_SOURCES
@@ -52,6 +45,27 @@ add_executable(index ${DEPS} ${INDEX_SOURCES})
 target_compile_features(index PRIVATE cxx_std_17)
 
 # Packages ===================================
+
+if(UNIX)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+
+  set(LIBRARIES ${LIBRARIES} Threads::Threads -ldl)
+endif()
+
+add_definitions(-DCURL_STATICLIB)
+pkg_check_modules(CURL libcurl)
+if(CURL_FOUND)
+  include_directories(${CURL_INCLUDE_DIR})
+
+  set(LIBRARIES ${LIBRARIES} ${CURL_LIBRARIES})
+else()
+  unset(CURL_FOUND CACHE)
+  hunter_add_package(CURL)
+  find_package(CURL CONFIG REQUIRED)
+
+  set(LIBRARIES ${LIBRARIES} CURL::libcurl)
+endif()
 
 pkg_check_modules(SQLITE3 sqlite3)
 if(SQLITE3_FOUND)

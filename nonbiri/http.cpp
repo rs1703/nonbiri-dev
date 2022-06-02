@@ -1,36 +1,25 @@
 #include <mutex>
 #include <stdexcept>
 
+#include <curl/curl.h>
 #include <nonbiri/http.h>
 #include <nonbiri/utility.h>
-
-void *handle {nullptr};
 
 void Http::initialize()
 {
   static std::mutex mtx {};
+  static bool initialized {};
+
   std::lock_guard lock(mtx);
-  if (handle != nullptr)
+  if (initialized)
     return;
+  initialized = true;
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  const std::string libcurl {"libcurl.dll"};
-#else
-  const std::string libcurl {"libcurl.so"};
-#endif
-
-  handle = Utils::loadLibrary(libcurl);
-  if (handle == nullptr)
-    throw std::runtime_error("Unable to load libcurl");
-
-  init = (init_t)Utils::getSymbol(handle, "curl_easy_init");
-  setOpt = (setOpt_t)Utils::getSymbol(handle, "curl_easy_setopt");
-  perform = (perform_t)Utils::getSymbol(handle, "curl_easy_perform");
-  cleanup = (cleanup_t)Utils::getSymbol(handle, "curl_easy_cleanup");
-  getInfo = (getInfo_t)Utils::getSymbol(handle, "curl_easy_getinfo");
-
-  if (init == nullptr || setOpt == nullptr || perform == nullptr || cleanup == nullptr)
-    throw std::runtime_error("Unable to load libcurl symbols");
+  init = &curl_easy_init;
+  cleanup = &curl_easy_cleanup;
+  setOpt = &curl_easy_setopt;
+  perform = &curl_easy_perform;
+  getInfo = &curl_easy_getinfo;
 }
 
 void Http::attach(Http::initialize_t initializeFnPtr)
