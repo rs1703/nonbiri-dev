@@ -24,7 +24,7 @@ bool Entity::operator==(const Entity &other) const
 
 Json::Value Entity::toJson()
 {
-  Json::Value root;
+  Json::Value root {};
   if (id > 0)
     root["id"] = id;
   if (!name.empty())
@@ -34,7 +34,7 @@ Json::Value Entity::toJson()
 
 void Entity::save(const std::string &tableName)
 {
-  utils::ExecTime execTime("Entity::save(tableName)");
+  Utils::ExecTime execTime("Entity::save(tableName)");
   const std::string sql {"INSERT INTO " + tableName + " (name) VALUES (?)"};
   sqlite3_stmt *stmt = nullptr;
 

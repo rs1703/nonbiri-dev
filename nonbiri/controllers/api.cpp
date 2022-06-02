@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <core/utils.h>
 #include <json/json.h>
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/macro.h>
@@ -43,7 +42,7 @@ Api::Api()
 
 void Api::getExtensions(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::getExtensions");
+  Utils::ExecTime execTime("Api::getExtensions");
   try {
     Json::Value root {};
     Json::FastWriter writer {};
@@ -91,7 +90,7 @@ void Api::getExtensions(const Request &req, Response &res)
 
 void Api::refreshExtensions(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::refreshExtensions");
+  Utils::ExecTime execTime("Api::refreshExtensions");
   try {
     App::manager->updateExtensionIndexes();
     res.set_header("refresh", "1");
@@ -103,7 +102,7 @@ void Api::refreshExtensions(const Request &req, Response &res)
 
 void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &res)
 {
-  utils::ExecTime execTime("Api::getExtensionFilters");
+  Utils::ExecTime execTime("Api::getExtensionFilters");
   try {
     REQUIRE_EXTENSION_ID;
     Extension *ext = App::manager->getExtension(sourceId);
@@ -127,7 +126,7 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
 
 void Api::installExtension(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::installExtension");
+  Utils::ExecTime execTime("Api::installExtension");
   try {
     REQUIRE_EXTENSION_ID;
     App::manager->downloadExtension(sourceId, false);
@@ -139,7 +138,7 @@ void Api::installExtension(const Request &req, Response &res)
 
 void Api::uninstallExtension(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::uninstallExtension");
+  Utils::ExecTime execTime("Api::uninstallExtension");
   try {
     REQUIRE_EXTENSION_ID;
     App::manager->removeExtension(sourceId);
@@ -151,7 +150,7 @@ void Api::uninstallExtension(const Request &req, Response &res)
 
 void Api::updateExtension(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::updateExtension");
+  Utils::ExecTime execTime("Api::updateExtension");
   try {
     REQUIRE_EXTENSION_ID;
     App::manager->updateExtension(sourceId);
@@ -163,7 +162,7 @@ void Api::updateExtension(const Request &req, Response &res)
 
 void Api::getLatests(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::getLatests");
+  Utils::ExecTime execTime("Api::getLatests");
   try {
     REQUIRE_EXTENSION_ID;
     Extension *ext = App::manager->getExtension(sourceId);
@@ -191,7 +190,7 @@ void Api::getLatests(const Request &req, Response &res)
 
 void Api::searchManga(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::searchManga");
+  Utils::ExecTime execTime("Api::searchManga");
   try {
     REQUIRE_EXTENSION_ID;
     Extension *ext = App::manager->getExtension(sourceId);
@@ -232,7 +231,7 @@ void Api::searchManga(const Request &req, Response &res)
 
 void Api::getManga(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::getManga");
+  Utils::ExecTime execTime("Api::getManga");
   try {
     REQUIRE_EXTENSION_ID;
     Extension *ext = App::manager->getExtension(sourceId);
@@ -256,7 +255,7 @@ void Api::getManga(const Request &req, Response &res)
 
 void Api::getChapters(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::getChapters");
+  Utils::ExecTime execTime("Api::getChapters");
   try {
     REQUIRE_EXTENSION_ID;
     Extension *ext = App::manager->getExtension(sourceId);
@@ -280,7 +279,7 @@ void Api::getChapters(const Request &req, Response &res)
 
 void Api::getPages(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::getPages");
+  Utils::ExecTime execTime("Api::getPages");
   try {
     REQUIRE_EXTENSION_ID;
     Extension *ext = App::manager->getExtension(sourceId);
@@ -304,7 +303,7 @@ void Api::getPages(const Request &req, Response &res)
 
 void Api::setMangaReadState(const Request &req, Response &res)
 {
-  utils::ExecTime execTime("Api::setMangaReadState");
+  Utils::ExecTime execTime("Api::setMangaReadState");
   try {
     REQUIRE_PARAM(sState, "state");
     ReadingStatus state = static_cast<ReadingStatus>(std::stoi(sState));

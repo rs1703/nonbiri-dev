@@ -62,7 +62,7 @@ void Database::initialize()
 std::vector<std::string> Database::deserializeArray(const std::string &str)
 {
   std::istringstream parse(str);
-  std::vector<std::string> ret;
+  std::vector<std::string> ret {};
   for (std::string token; std::getline(parse, token, ',');)
     ret.push_back(token);
   return ret;

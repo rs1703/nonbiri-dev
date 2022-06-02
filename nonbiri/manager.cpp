@@ -7,34 +7,40 @@
 #include <tuple>
 #include <vector>
 
-#include <core/utils.h>
 #include <json/json.h>
 #include <nonbiri/cache.h>
+#include <nonbiri/http.h>
 #include <nonbiri/manager.h>
 #include <nonbiri/utility.h>
 
 namespace fs = std::filesystem;
-typedef Extension *(*createExtFn)(void);
-
-static const std::string dataBaseUrl {"https://raw.githubusercontent.com/rs1703/nonbiri-extensions-dev/releases"};
-Manager *App::manager = nullptr;
-
+static const std::string dataBaseUrl {
+  "https://raw.githubusercontent.com/rs1703/nonbiri-extensions-dev/releases",
+};
+Manager *App::manager {nullptr};
 Extension *createExtension(void *handle)
 {
-  auto createExt = (createExtFn)utils::getSymbol(handle, "create");
-  if (createExt == nullptr)
+  auto initializeFnPtr = (Http::initialize_t)Utils::getSymbol(handle, "initialize");
+  if (initializeFnPtr == nullptr)
+    throw std::runtime_error("Unable to get fn symbol 'initialize' from extension");
+  Http::attach(initializeFnPtr);
+
+  auto createFnPtr = (create_t)Utils::getSymbol(handle, "create");
+  if (createFnPtr == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'create' from extension");
-  Extension *extension = createExt();
+
+  Extension *extension = createFnPtr();
   if (extension == nullptr)
     throw std::runtime_error("Unable to create extension");
+
   return extension;
 }
 
 Manager::Manager(const std::string &dir) : extensionsDir {dir}
 {
   std::cout << "Initializing manager..." << std::endl;
-  const std::vector<std::string> paths = getLocalExtensionPaths();
-  for (const std::string &path : paths) {
+  const auto paths = getLocalExtensionPaths();
+  for (const auto &path : paths) {
     try {
       loadExtension(path);
     } catch (const std::exception &e) {
@@ -50,7 +56,7 @@ Manager::~Manager()
 
 Extension *Manager::getExtension(const std::string &id)
 {
-  std::shared_lock lock {mExtensionsMutex};
+  std::shared_lock lock(mExtensionsMutex);
   auto it = mExtensions.find(id);
   if (it == mExtensions.end())
     return nullptr;
@@ -79,13 +85,13 @@ const ExtensionInfoMap &Manager::getIndexes()
 }
 
 #define LOAD_EXTENSION \
-  void *handle = utils::loadLibrary(path.string()); \
+  void *handle = Utils::loadLibrary(path.string()); \
   if (handle == nullptr) \
     throw std::runtime_error("Unable to load extension"); \
 \
   Extension *ext = createExtension(handle); \
   if (mExtensions.find(ext->id) != mExtensions.end()) { \
-    utils::freeLibrary(handle); \
+    Utils::freeLibrary(handle); \
     throw std::runtime_error("Extension already loaded"); \
   } \
 \
@@ -99,7 +105,7 @@ void Manager::loadExtension(const std::string &name)
 {
   std::lock_guard lock(mExtensionsMutex);
   std::cout << "Loading extension: " << name << "..." << std::endl;
-  const fs::path path {fs::path(extensionsDir) / name};
+  const auto path {fs::path(extensionsDir) / name};
   if (!fs::exists(path))
     throw std::runtime_error("Extension not found");
 
@@ -137,12 +143,11 @@ void Manager::downloadExtension(const std::string &id, bool update)
   const std::string name {"lib" + id + ".so"};
   const std::string url {dataBaseUrl + "/linux/" + name};
 #endif
-  int code;
 
   if (!fs::exists(extensionsDir))
     fs::create_directory(extensionsDir);
 
-  const fs::path path = fs::path(extensionsDir) / name;
+  const auto path {fs::path(extensionsDir) / name};
   if (fs::exists(path)) {
     if (!update)
       return;
@@ -152,7 +157,7 @@ void Manager::downloadExtension(const std::string &id, bool update)
   }
 
   std::cout << "Downloading " << name << "..." << std::endl;
-  code = http::download(url, path.string());
+  int code = Http::download(url, path.string());
   if (code != 200)
     throw std::runtime_error("Unable to download extension");
 
@@ -206,18 +211,18 @@ void Manager::updateExtensionIndexes()
   static const std::string url {dataBaseUrl + "/linux.json"};
 #endif
 
-  const std::string res = http::get(url);
+  const auto res = Http::get(url);
   if (res.empty())
     throw std::runtime_error("No results");
 
-  Json::Value root;
-  Json::Reader reader;
+  Json::Value root {};
+  Json::Reader reader {};
 
   if (!reader.parse(res, root))
     throw std::runtime_error("Unable to parse extensions index: " + reader.getFormattedErrorMessages());
 
-  for (const std::string &key : root.getMemberNames()) {
-    const Json::Value json = root[key];
+  for (const auto &key : root.getMemberNames()) {
+    const auto &json = root[key];
     ExtensionInfo info {
       json["id"].asString(),
       json["baseUrl"].asString(),
@@ -227,7 +232,7 @@ void Manager::updateExtensionIndexes()
     };
     mIndexes.insert(std::make_pair(info.id, info));
 
-    Extension *ext = getExtension(info.id);
+    auto ext = getExtension(info.id);
     if (ext != nullptr)
       ext->hasUpdate = ext->version != info.version;
   }
@@ -235,15 +240,14 @@ void Manager::updateExtensionIndexes()
 
 std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::getLatests(Extension &ext, int page)
 {
-  utils::ExecTime execTime("Manager::getLatests(ext, page)");
+  Utils::ExecTime execTime("Manager::getLatests(ext, page)");
   const auto &[entries, hasNext] = ext.getLatests(page);
 
-  std::vector<std::shared_ptr<Manga>> manga;
-  for (const Manga_t *e : entries) {
-    std::shared_ptr<Manga> entry = std::make_shared<Manga>(ext.id, *e);
+  std::vector<std::shared_ptr<Manga>> manga {};
+  for (const auto &e : entries) {
+    const auto entry = std::make_shared<Manga>(ext.id, *e);
     entry->getReadState();
     manga.push_back(entry);
-    delete e;
   }
   return {manga, hasNext};
 }
@@ -253,25 +257,24 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(Exten
                                                                            const std::string &query,
                                                                            const std::vector<FilterKV> &filters)
 {
-  utils::ExecTime execTime("Manager::searchManga(ext, page, query, filters)");
+  Utils::ExecTime execTime("Manager::searchManga(ext, page, query, filters)");
   const auto &[entries, hasNext] = ext.searchManga(page, query, filters);
 
-  std::vector<std::shared_ptr<Manga>> manga;
-  for (const Manga_t *e : entries) {
-    std::shared_ptr<Manga> entry = std::make_shared<Manga>(ext.id, *e);
+  std::vector<std::shared_ptr<Manga>> manga {};
+  for (const auto &e : entries) {
+    const auto entry = std::make_shared<Manga>(ext.id, *e);
     entry->getReadState();
     manga.push_back(entry);
-    delete e;
   }
   return {manga, hasNext};
 }
 
 std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path)
 {
-  utils::ExecTime execTime("Manager::getManga(ext, path)");
-  const std::string cacheKey {ext.id + path};
+  Utils::ExecTime execTime("Manager::getManga(ext, path)");
+  const auto cacheKey {ext.id + path};
   if (Cache::manga.has(cacheKey)) {
-    std::shared_ptr<Manga> manga = Cache::manga.get(cacheKey);
+    const auto manga = Cache::manga.get(cacheKey);
     if (manga->id > 0)
       Cache::manga.remove(cacheKey);
     else
@@ -279,22 +282,20 @@ std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path
   }
 
   try {
-    const std::shared_ptr<Manga> manga = Manga::find(ext.id, path);
+    const auto manga = Manga::find(ext.id, path);
     if (manga != nullptr)
       return manga;
   } catch (const std::exception &e) {
     std::cerr << "Unable to get manga: " << e.what() << std::endl;
   }
 
-  std::shared_ptr<Manga> manga = nullptr;
+  std::shared_ptr<Manga> manga {nullptr};
   try {
-    const Manga_t *m = ext.getManga(path);
+    const auto m = ext.getManga(path);
     if (m != nullptr) {
       manga = std::make_shared<Manga>(ext.id, *m);
-      delete m;
     }
   } catch (const std::exception &e) {
-    std::cerr << "Unable to fetch manga: " << e.what() << std::endl;
   }
 
   if (manga != nullptr)
@@ -304,8 +305,8 @@ std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path
 
 std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, const std::string &path)
 {
-  utils::ExecTime execTime("Manager::getChapters(ext, path)");
-  std::shared_ptr<Manga> manga = getManga(ext, path);
+  Utils::ExecTime execTime("Manager::getChapters(ext, path)");
+  auto manga = getManga(ext, path);
   if (manga == nullptr)
     throw std::runtime_error("Unable to get manga");
   return getChapters(ext, *manga);
@@ -313,18 +314,18 @@ std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, const
 
 std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, Manga &manga)
 {
-  utils::ExecTime execTime("Manager::getChapters(ext, manga)");
+  Utils::ExecTime execTime("Manager::getChapters(ext, manga)");
   try {
-    std::vector<std::shared_ptr<Chapter>> chapters = manga.getChapters();
+    const auto chapters = manga.getChapters();
     if (!chapters.empty())
       return chapters;
   } catch (const std::exception &e) {
     std::cerr << "Unable to get chapters: " << e.what() << std::endl;
   }
 
-  const std::string cacheKey {ext.id + manga.path};
+  const auto cacheKey {ext.id + manga.path};
   if (Cache::chapters.has(cacheKey)) {
-    std::vector<std::shared_ptr<Chapter>> chapters = Cache::chapters.get(cacheKey);
+    const auto chapters = Cache::chapters.get(cacheKey);
     if (manga.id > 0) {
       Chapter::saveAll(chapters, manga.id);
       Cache::chapters.remove(cacheKey);
@@ -335,11 +336,10 @@ std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, Manga
 
   std::vector<std::shared_ptr<Chapter>> chapters {};
   try {
-    const std::vector<Chapter_t *> entries = ext.getChapters(manga.path);
-    for (const Chapter_t *e : entries) {
-      std::shared_ptr<Chapter> entry = std::make_shared<Chapter>(manga.id, ext.id, *e);
+    const auto entries = ext.getChapters(manga.path);
+    for (const auto &e : entries) {
+      const auto entry = std::make_shared<Chapter>(manga.id, ext.id, *e);
       chapters.push_back(entry);
-      delete e;
     }
   } catch (const std::exception &e) {
     std::cerr << "Unable to fetch chapters: " << e.what() << std::endl;
@@ -354,7 +354,7 @@ std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, Manga
 
 std::vector<std::string> Manager::getPages(Extension &ext, const std::string &path)
 {
-  utils::ExecTime execTime("Manager::getPages(ext, path)");
+  Utils::ExecTime execTime("Manager::getPages(ext, path)");
   return ext.getPages(path);
 }
 
@@ -362,8 +362,8 @@ std::vector<std::string> Manager::getLocalExtensionPaths()
 {
   if (!fs::exists(extensionsDir))
     return {};
-  std::vector<std::string> result;
-  for (const fs::directory_entry &dirEntry : fs::recursive_directory_iterator(extensionsDir))
+  std::vector<std::string> result {};
+  for (const auto &dirEntry : fs::recursive_directory_iterator(extensionsDir))
     if (dirEntry.is_regular_file())
       result.push_back(dirEntry.path().filename().string());
   return result;

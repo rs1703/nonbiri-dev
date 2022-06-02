@@ -13,7 +13,7 @@ int main()
 #endif
 
   Manager manager(dir);
-  Json::Value root;
+  Json::Value root {};
 
   auto extensions = manager.getExtensions();
   for (const auto &[_, extension] : extensions) {

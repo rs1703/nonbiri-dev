@@ -27,7 +27,7 @@ bool Manga::operator==(const Manga &other) const
 
 Json::Value Manga::toJson()
 {
-  Json::Value root;
+  Json::Value root {};
   if (id > 0)
     root["id"] = id;
   if (!sourceId.empty())
@@ -87,7 +87,7 @@ void Manga::setReadState(ReadingStatus status)
 
 void Manga::save()
 {
-  utils::ExecTime execTime("Manga::save()");
+  Utils::ExecTime execTime("Manga::save()");
   static constexpr const char *sql {
     "INSERT INTO manga ("
     " source_id, path, cover_url,"
@@ -141,7 +141,7 @@ void Manga::save()
 
 void Manga::update()
 {
-  utils::ExecTime execTime("Manga::update()");
+  Utils::ExecTime execTime("Manga::update()");
   static constexpr const char *sql {
     "UPDATE manga SET updated_at = ?, path = ?, cover_url = ?,"
     " custom_cover_url = ?, banner_url = ?, title = ?, description = ?, "
@@ -281,7 +281,7 @@ std::shared_ptr<Manga> Manga::find(const std::string &sourceId, const std::strin
 
 int64_t Manga::setReadState(ReadingStatus status, const std::string &sourceId, const std::string &path)
 {
-  utils::ExecTime execTime("Manga::setReadState(status, sourceId, path, manga)");
+  Utils::ExecTime execTime("Manga::setReadState(status, sourceId, path, manga)");
   static constexpr const char *sql {
     "UPDATE manga SET reading_status = ?, updated_at = ?"
     " WHERE source_id = ? AND path = ?",
@@ -319,7 +319,7 @@ int64_t Manga::setReadState(ReadingStatus status, const std::string &sourceId, c
 
 void Manga::remove(const std::string &sourceId, const std::string &path)
 {
-  utils::ExecTime execTime("Manga::remove(sourceId, path)");
+  Utils::ExecTime execTime("Manga::remove(sourceId, path)");
   static constexpr const char *sql {"DELETE FROM manga WHERE source_id = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
@@ -403,7 +403,7 @@ void Manga::loadGenres()
 
 void Manga::saveArtists()
 {
-  utils::ExecTime execTime("Manga::saveArtists()");
+  Utils::ExecTime execTime("Manga::saveArtists()");
   static constexpr const char *deleteSql {"DELETE FROM manga_artists WHERE manga_id = ?"};
   static constexpr const char *insertSql {
     "INSERT INTO manga_artists (manga_id, author_id)"
@@ -449,7 +449,7 @@ void Manga::saveArtists()
 
 void Manga::saveAuthors()
 {
-  utils::ExecTime execTime("Manga::saveAuthors()");
+  Utils::ExecTime execTime("Manga::saveAuthors()");
   static constexpr const char *deleteSql {"DELETE FROM manga_authors WHERE manga_id = ?"};
   static constexpr const char *insertSql {
     "INSERT INTO manga_authors (manga_id, author_id)"
@@ -495,7 +495,7 @@ void Manga::saveAuthors()
 
 void Manga::saveGenres()
 {
-  utils::ExecTime execTime("Manga::saveGenres()");
+  Utils::ExecTime execTime("Manga::saveGenres()");
   static constexpr const char *deleteSql {"DELETE FROM manga_genres WHERE manga_id = ?"};
   static constexpr const char *insertSql {
     "INSERT INTO manga_genres (manga_id, genre_id)"

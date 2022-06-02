@@ -21,7 +21,7 @@ public:
   int64_t lastReadAt {};
   int16_t lastReadPage {};
   int64_t readCount {};
-  std::vector<std::string> pages;
+  std::vector<std::string> pages {};
   int16_t pageCount {};
   bool isDownloaded {};
 

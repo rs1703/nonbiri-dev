@@ -4,10 +4,11 @@
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/web.h>
 #include <nonbiri/database.h>
+#include <nonbiri/http.h>
 #include <nonbiri/manager.h>
 #include <nonbiri/server.h>
 
-bool App::daemonize {false};
+bool App::daemonize {};
 int App::port {42081};
 
 void App::initialize(int argc, char *argv[])
@@ -21,6 +22,7 @@ void App::initialize(int argc, char *argv[])
     }
   }
 
+  Http::initialize();
   Database::initialize();
   manager = new Manager();
   server = new Server(port);

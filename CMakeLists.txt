@@ -12,12 +12,11 @@ include(FindPkgConfig)
 # Deps =======================================
 
 file(GLOB GUMBO_QUERY_SOURCES libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
+file(GLOB CORE_SOURCES libs/nonbiri-core-dev/core/*.cpp)
+
 set(DEPS
   ${GUMBO_QUERY_SOURCES}
-  libs/nonbiri-core-dev/core/extension.cpp
-  libs/nonbiri-core-dev/core/filters.cpp
-  libs/nonbiri-core-dev/core/parser.cpp
-  libs/nonbiri-core-dev/core/utils.cpp)
+  ${CORE_SOURCES})
 
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}
@@ -37,6 +36,7 @@ file(GLOB INDEX_SOURCES
   nonbiri/models/*.cpp
   nonbiri/cache.cpp
   nonbiri/database.cpp
+  nonbiri/http.cpp
   nonbiri/lru.cpp
   nonbiri/manager.cpp
   nonbiri/utility.cpp
@@ -45,22 +45,6 @@ add_executable(index ${DEPS} ${INDEX_SOURCES})
 target_compile_features(index PRIVATE cxx_std_17)
 
 # Packages ===================================
-
-add_definitions(-DCURL_STATICLIB)
-pkg_check_modules(CURL libcurl)
-if(CURL_FOUND)
-  include_directories(${CURL_INCLUDE_DIR})
-
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${CURL_LIBRARIES})
-  target_link_libraries(index PRIVATE ${CURL_LIBRARIES})
-else()
-  unset(CURL_FOUND CACHE)
-  hunter_add_package(CURL)
-  find_package(CURL CONFIG REQUIRED)
-
-  target_link_libraries(${PROJECT_NAME} PRIVATE CURL::libcurl)
-  target_link_libraries(index PRIVATE CURL::libcurl)
-endif()
 
 pkg_check_modules(SQLITE3 sqlite3)
 if(SQLITE3_FOUND)

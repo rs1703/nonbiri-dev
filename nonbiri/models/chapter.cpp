@@ -29,7 +29,7 @@ bool Chapter::operator==(const Chapter &other) const
 
 Json::Value Chapter::toJson()
 {
-  Json::Value root;
+  Json::Value root {};
   if (id > 0)
     root["id"] = id;
   if (mangaId > 0)
@@ -66,7 +66,7 @@ Json::Value Chapter::toJson()
 
 void Chapter::save(int64_t mangaId)
 {
-  utils::ExecTime execTime("Chapter::save");
+  Utils::ExecTime execTime("Chapter::save");
   if (this->mangaId <= 0 && mangaId <= 0)
     throw std::runtime_error("Chapter::save(): mangaId is required");
 
@@ -149,7 +149,7 @@ std::vector<std::shared_ptr<Chapter>> Chapter::findAll(int64_t mangaId)
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
 
-  std::vector<std::shared_ptr<Chapter>> chapters;
+  std::vector<std::shared_ptr<Chapter>> chapters {};
   while (exit = sqlite3_step(stmt), exit == SQLITE_ROW)
     chapters.push_back(std::make_shared<Chapter>(stmt));
   sqlite3_finalize(stmt);
@@ -158,7 +158,7 @@ std::vector<std::shared_ptr<Chapter>> Chapter::findAll(int64_t mangaId)
 
 void Chapter::saveAll(const std::vector<std::shared_ptr<Chapter>> &chapters, int64_t mangaId)
 {
-  utils::ExecTime execTime("Chapter::saveAll");
+  Utils::ExecTime execTime("Chapter::saveAll");
   if (chapters.empty())
     return;
 
