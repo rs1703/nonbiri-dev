@@ -1,10 +1,11 @@
+#include <mutex>
 #include <thread>
 
+#include <core/core.h>
 #include <nonbiri/app.h>
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/web.h>
 #include <nonbiri/database.h>
-#include <nonbiri/http.h>
 #include <nonbiri/manager.h>
 #include <nonbiri/server.h>
 
@@ -22,7 +23,13 @@ void App::initialize(int argc, char *argv[])
     }
   }
 
-  Http::initialize();
+  Http::init = &curl_easy_init;
+  Http::cleanup = &curl_easy_cleanup;
+  Http::setOpt = &curl_easy_setopt;
+  Http::perform = &curl_easy_perform;
+  Http::getInfo = &curl_easy_getinfo;
+  Http::getError = &curl_easy_strerror;
+
   Database::initialize();
   manager = new Manager();
   server = new Server(port);

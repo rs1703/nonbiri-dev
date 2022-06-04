@@ -7,9 +7,10 @@
 #include <tuple>
 #include <vector>
 
+#include <core/core.h>
+#include <core/http/http.h>
 #include <json/json.h>
 #include <nonbiri/cache.h>
-#include <nonbiri/http.h>
 #include <nonbiri/manager.h>
 #include <nonbiri/utility.h>
 
@@ -18,18 +19,19 @@ static const std::string dataBaseUrl {
   "https://raw.githubusercontent.com/rs1703/nonbiri-extensions-dev/releases",
 };
 Manager *App::manager {nullptr};
+
 Extension *createExtension(void *handle)
 {
-  auto initializeFnPtr = (Http::initialize_t)Utils::getSymbol(handle, "initialize");
-  if (initializeFnPtr == nullptr)
+  auto initialize = (Core::initialize_t)Utils::getSymbol(handle, "initialize");
+  if (initialize == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'initialize' from extension");
-  Http::attach(initializeFnPtr);
+  initialize(Http::init, Http::setOpt, Http::perform, Http::cleanup, Http::getInfo, Http::getError);
 
-  auto createFnPtr = (create_t)Utils::getSymbol(handle, "create");
-  if (createFnPtr == nullptr)
+  auto create = (create_t)Utils::getSymbol(handle, "create");
+  if (create == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'create' from extension");
 
-  Extension *extension = createFnPtr();
+  Extension *extension = create();
   if (extension == nullptr)
     throw std::runtime_error("Unable to create extension");
 
@@ -212,13 +214,13 @@ void Manager::updateExtensionIndexes()
 #endif
 
   const auto res = Http::get(url);
-  if (res.empty())
-    throw std::runtime_error("No results");
+  if (res->body.empty())
+    throw std::runtime_error("Unable to download extension index");
 
   Json::Value root {};
   Json::Reader reader {};
 
-  if (!reader.parse(res, root))
+  if (!reader.parse(res->body, root))
     throw std::runtime_error("Unable to parse extensions index: " + reader.getFormattedErrorMessages());
 
   for (const auto &key : root.getMemberNames()) {
