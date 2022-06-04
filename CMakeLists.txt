@@ -36,7 +36,6 @@ file(GLOB INDEX_SOURCES
   nonbiri/models/*.cpp
   nonbiri/cache.cpp
   nonbiri/database.cpp
-  nonbiri/http.cpp
   nonbiri/lru.cpp
   nonbiri/manager.cpp
   nonbiri/utility.cpp
