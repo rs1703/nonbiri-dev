@@ -25,7 +25,15 @@ Extension *createExtension(void *handle)
   auto initialize = (Core::initialize_t)Utils::getSymbol(handle, "initialize");
   if (initialize == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'initialize' from extension");
-  initialize(Http::init, Http::setOpt, Http::perform, Http::cleanup, Http::getInfo, Http::getError);
+
+  initialize(Http::init,
+             Http::setOpt,
+             Http::perform,
+             Http::cleanup,
+             Http::getInfo,
+             Http::slist_append,
+             Http::slist_freeAll,
+             Http::getError);
 
   auto create = (create_t)Utils::getSymbol(handle, "create");
   if (create == nullptr)

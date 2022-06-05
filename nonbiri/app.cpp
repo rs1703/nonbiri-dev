@@ -28,6 +28,8 @@ void App::initialize(int argc, char *argv[])
   Http::setOpt = &curl_easy_setopt;
   Http::perform = &curl_easy_perform;
   Http::getInfo = &curl_easy_getinfo;
+  Http::slist_append = &curl_slist_append;
+  Http::slist_freeAll = &curl_slist_free_all;
   Http::getError = &curl_easy_strerror;
 
   Database::initialize();
