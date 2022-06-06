@@ -206,7 +206,7 @@ void Api::searchManga(const Request &req, Response &res)
       } else if (key == "q") {
         query = value;
       } else if (filters.find(key) != filters.end()) {
-        pairs.emplace_back(key, value);
+        pairs.push_back({key, value});
       }
     }
 
