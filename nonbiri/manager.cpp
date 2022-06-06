@@ -27,13 +27,13 @@ Extension *createExtension(void *handle)
     throw std::runtime_error("Unable to get fn symbol 'initialize' from extension");
 
   initialize(Http::init,
-             Http::setOpt,
-             Http::perform,
-             Http::cleanup,
-             Http::getInfo,
-             Http::slist_append,
-             Http::slist_freeAll,
-             Http::getError);
+    Http::setOpt,
+    Http::perform,
+    Http::cleanup,
+    Http::getInfo,
+    Http::slist_append,
+    Http::slist_freeAll,
+    Http::getError);
 
   auto create = (create_t)Utils::getSymbol(handle, "create");
   if (create == nullptr)
@@ -106,7 +106,7 @@ const ExtensionInfoMap &Manager::getIndexes()
   } \
 \
   const auto info = getExtensionInfo(ext->id); \
-  ext->hasUpdate = info != nullptr && ext->version != info->version; \
+  ext->hasUpdate  = info != nullptr && ext->version != info->version; \
 \
   mExtensions.insert(std::make_pair(ext->id, ext)); \
   std::cout << "Loaded " << ext->id << std::endl;
@@ -262,10 +262,8 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::getLatests(Extens
   return {manga, hasNext};
 }
 
-std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(Extension &ext,
-                                                                           int page,
-                                                                           const std::string &query,
-                                                                           const std::vector<FilterKV> &filters)
+std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(
+  Extension &ext, int page, const std::string &query, const std::vector<Filter::Pair> &filters)
 {
   Utils::ExecTime execTime("Manager::searchManga(ext, page, query, filters)");
   const auto &[entries, hasNext] = ext.searchManga(page, query, filters);

@@ -23,18 +23,18 @@ void App::initialize(int argc, char *argv[])
     }
   }
 
-  Http::init = &curl_easy_init;
-  Http::cleanup = &curl_easy_cleanup;
-  Http::setOpt = &curl_easy_setopt;
-  Http::perform = &curl_easy_perform;
-  Http::getInfo = &curl_easy_getinfo;
-  Http::slist_append = &curl_slist_append;
+  Http::init          = &curl_easy_init;
+  Http::cleanup       = &curl_easy_cleanup;
+  Http::setOpt        = &curl_easy_setopt;
+  Http::perform       = &curl_easy_perform;
+  Http::getInfo       = &curl_easy_getinfo;
+  Http::slist_append  = &curl_slist_append;
   Http::slist_freeAll = &curl_slist_free_all;
-  Http::getError = &curl_easy_strerror;
+  Http::getError      = &curl_easy_strerror;
 
   Database::initialize();
   manager = new Manager();
-  server = new Server(port);
+  server  = new Server(port);
 
   new Api();
   new Web();

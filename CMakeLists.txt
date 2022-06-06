@@ -27,7 +27,7 @@ include_directories(
 
 file(GLOB MAIN_SOURCES nonbiri/*.cpp nonbiri/*/*.cpp libs/cpp-httplib/httplib.h)
 add_executable(${PROJECT_NAME} ${DEPS} ${MAIN_SOURCES})
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
 
 # Indexer ====================================
@@ -41,7 +41,7 @@ file(GLOB INDEX_SOURCES
   nonbiri/utility.cpp
   indexer/*.cpp)
 add_executable(index ${DEPS} ${INDEX_SOURCES})
-target_compile_features(index PRIVATE cxx_std_17)
+target_compile_features(index PRIVATE cxx_std_20)
 
 # Packages ===================================
 

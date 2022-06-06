@@ -2,9 +2,9 @@
 Language: Cpp
 # BasedOnStyle: Chromium
 AccessModifierOffset: -2
-AlignAfterOpenBracket: Align
-AlignConsecutiveMacros: false
-AlignConsecutiveAssignments: false
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveMacros: true
+AlignConsecutiveAssignments: true
 AlignConsecutiveBitFields: false
 AlignConsecutiveDeclarations: false
 AlignEscapedNewlines: DontAlign
@@ -49,13 +49,13 @@ BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Custom
 BreakInheritanceList: BeforeColon
 BreakBeforeTernaryOperators: true
-BreakConstructorInitializers: BeforeColon
+BreakConstructorInitializers: AfterColon
 BreakAfterJavaFieldAnnotations: true
 BreakStringLiterals: true
 ColumnLimit: 120
 CommentPragmas: "^ IWYU pragma:"
 CompactNamespaces: false
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 2
 ContinuationIndentWidth: 2
 Cpp11BracedListStyle: true

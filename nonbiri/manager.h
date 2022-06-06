@@ -14,7 +14,7 @@
 #include <nonbiri/models/chapter.h>
 #include <nonbiri/models/manga.h>
 
-using ExtensionMap = std::map<std::string, Extension *>;
+using ExtensionMap     = std::map<std::string, Extension *>;
 using ExtensionInfoMap = std::map<std::string, ExtensionInfo>;
 
 class Manager
@@ -50,10 +50,8 @@ public:
 
   //
   std::tuple<std::vector<std::shared_ptr<Manga>>, bool> getLatests(Extension &ext, int page);
-  std::tuple<std::vector<std::shared_ptr<Manga>>, bool> searchManga(Extension &ext,
-                                                                    int page,
-                                                                    const std::string &query,
-                                                                    const std::vector<FilterKV> &filters);
+  std::tuple<std::vector<std::shared_ptr<Manga>>, bool> searchManga(
+    Extension &ext, int page, const std::string &query, const std::vector<Filter::Pair> &filters);
 
   std::shared_ptr<Manga> getManga(Extension &ext, const std::string &path);
   std::vector<std::shared_ptr<Chapter>> getChapters(Extension &ext, const std::string &path);
