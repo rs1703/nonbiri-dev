@@ -113,7 +113,7 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
 
     Json::Value root {};
     for (const auto &filter : filters)
-      root.append(filter.second.toJson());
+      root.append(filter.second->toJson());
 
     Json::FastWriter writer {};
     REPLY(200, root.empty() ? "[]" : writer.write(root), MIME_JSON);
