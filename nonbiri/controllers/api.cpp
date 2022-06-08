@@ -112,8 +112,10 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
     const auto &filters = ext->getFilters();
 
     Json::Value root {};
-    for (const auto &filter : filters)
-      root.append(filter.second->toJson());
+    for (const auto &[_, filter] : filters) {
+      if (!filter->isHidden)
+        root.append(filter->toJson());
+    }
 
     Json::FastWriter writer {};
     REPLY(200, root.empty() ? "[]" : writer.write(root), MIME_JSON);
