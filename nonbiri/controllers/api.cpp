@@ -112,7 +112,7 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
     const auto &filters = ext->getFilters();
 
     Json::Value root {};
-    for (const auto &[_, filter] : filters) {
+    for (const auto &filter : filters) {
       if (!filter->isHidden)
         root.append(filter->toJson());
     }
@@ -201,13 +201,13 @@ void Api::searchManga(const Request &req, Response &res)
     std::string query {};
     std::vector<Filter::Pair> pairs {};
 
-    const auto &filters = ext->getFilters();
+    const auto &filtersIndex = ext->getFiltersIndex();
     for (const auto &[key, value] : req.params) {
       if (key == "page") {
         page = std::max(1, std::stoi(value));
       } else if (key == "q") {
         query = value;
-      } else if (filters.find(key) != filters.end()) {
+      } else if (filtersIndex.find(key) != filtersIndex.end()) {
         pairs.push_back({key, value});
       }
     }

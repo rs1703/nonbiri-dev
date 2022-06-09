@@ -132,7 +132,7 @@ void Manager::unloadExtension(const std::string &id)
 
   const auto name    = ext->second->name;
   const auto version = ext->second->version;
-  std::cout << "Unloading " << name << " " << version << std::endl;
+  std::cout << "Unloading " << name << " v" << version << std::endl;
 
   auto handle = handles.find(id);
   if (handle == handles.end())
