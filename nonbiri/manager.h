@@ -14,19 +14,19 @@
 #include <nonbiri/models/chapter.h>
 #include <nonbiri/models/manga.h>
 
-using ExtensionMap     = std::map<std::string, Extension *>;
-using ExtensionInfoMap = std::map<std::string, ExtensionInfo>;
-
 class Manager
 {
   const std::string extensionsDir;
   std::atomic<time_t> indexLastUpdated;
 
-  ExtensionMap mExtensions;
-  std::shared_mutex mExtensionsMutex;
+  std::map<std::string, Extension *> extensions;
+  std::shared_mutex extensionsMutex;
 
-  ExtensionInfoMap mIndexes;
-  std::shared_mutex mIndexesMutex;
+  std::map<std::string, void *> handles;
+  std::shared_mutex handlesMutex;
+
+  std::map<std::string, ExtensionInfo> indexes;
+  std::shared_mutex indexesMutex;
 
 public:
   Manager(const std::string &dir = "extensions");
@@ -35,11 +35,11 @@ public:
 
   //
   Extension *getExtension(const std::string &id);
-  const ExtensionMap &getExtensions();
-  const std::shared_ptr<ExtensionInfo> getExtensionInfo(const std::string &id);
-  const ExtensionInfoMap &getIndexes();
+  const std::map<std::string, Extension *> &getExtensions();
+  const ExtensionInfo *getExtensionInfo(const std::string &id);
+  const std::map<std::string, ExtensionInfo> &getIndexes();
 
-  void loadExtension(const std::string &name);
+  void loadExtension(const std::string &path);
   void unloadExtension(const std::string &id);
 
   void downloadExtension(const std::string &id, bool update = false);

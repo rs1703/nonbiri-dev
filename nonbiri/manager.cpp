@@ -39,7 +39,7 @@ Extension *createExtension(void *handle)
   if (create == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'create' from extension");
 
-  Extension *extension = create();
+  auto extension = create();
   if (extension == nullptr)
     throw std::runtime_error("Unable to create extension");
 
@@ -66,133 +66,139 @@ Manager::~Manager()
 
 Extension *Manager::getExtension(const std::string &id)
 {
-  std::shared_lock lock(mExtensionsMutex);
-  auto it = mExtensions.find(id);
-  if (it == mExtensions.end())
+  std::shared_lock lock(extensionsMutex);
+  auto it = extensions.find(id);
+  if (it == extensions.end())
     return nullptr;
   return it->second;
 }
 
-const ExtensionMap &Manager::getExtensions()
+const std::map<std::string, Extension *> &Manager::getExtensions()
 {
-  std::shared_lock lock(mExtensionsMutex);
-  return mExtensions;
+  std::shared_lock lock(extensionsMutex);
+  return extensions;
 }
 
-const std::shared_ptr<ExtensionInfo> Manager::getExtensionInfo(const std::string &id)
+const ExtensionInfo *Manager::getExtensionInfo(const std::string &id)
 {
-  std::shared_lock lock(mIndexesMutex);
-  auto it = mIndexes.find(id);
-  if (it == mIndexes.end())
+  std::shared_lock lock(indexesMutex);
+  auto it = indexes.find(id);
+  if (it == indexes.end())
     return nullptr;
-  return std::make_shared<ExtensionInfo>(it->second);
+  return &it->second;
 }
 
-const ExtensionInfoMap &Manager::getIndexes()
+const std::map<std::string, ExtensionInfo> &Manager::getIndexes()
 {
-  std::shared_lock lock(mIndexesMutex);
-  return mIndexes;
+  std::shared_lock lock(indexesMutex);
+  return indexes;
 }
 
-#define LOAD_EXTENSION \
-  void *handle = Utils::loadLibrary(path.string()); \
-  if (handle == nullptr) \
-    throw std::runtime_error("Unable to load extension"); \
-\
-  Extension *ext = createExtension(handle); \
-  if (mExtensions.find(ext->id) != mExtensions.end()) { \
-    Utils::freeLibrary(handle); \
-    throw std::runtime_error("Extension already loaded"); \
-  } \
-\
-  const auto info = getExtensionInfo(ext->id); \
-  ext->hasUpdate  = info != nullptr && ext->version != info->version; \
-\
-  mExtensions.insert(std::make_pair(ext->id, ext)); \
-  std::cout << "Loaded " << ext->id << std::endl;
-
-void Manager::loadExtension(const std::string &name)
+void Manager::loadExtension(const std::string &path)
 {
-  std::lock_guard lock(mExtensionsMutex);
-  std::cout << "Loading extension: " << name << "..." << std::endl;
-  const auto path {fs::path(extensionsDir) / name};
+  std::lock_guard lock(extensionsMutex);
+  std::lock_guard lock2(handlesMutex);
+
+  std::cout << "Loading " << path << std::endl;
   if (!fs::exists(path))
     throw std::runtime_error("Extension not found");
 
-  LOAD_EXTENSION;
+  auto handle = Utils::loadLibrary(path);
+  if (handle == nullptr)
+    throw std::runtime_error("Unable to load extension");
+
+  auto ext = createExtension(handle);
+  if (extensions.find(ext->id) != extensions.end()) {
+    Utils::freeLibrary(handle);
+    throw std::runtime_error("Extension already loaded");
+  }
+
+  const auto info = getExtensionInfo(ext->id);
+  ext->hasUpdate  = info != nullptr && ext->version != info->version;
+
+  extensions.insert(std::make_pair(ext->id, ext));
+  handles.insert(std::make_pair(ext->id, handle));
+  std::cout << "Loaded " << ext->name << " v" << ext->version << std::endl;
 }
 
 void Manager::unloadExtension(const std::string &id)
 {
-  std::lock_guard lock(mExtensionsMutex);
-  std::cout << "Unloading " << id << "..." << std::endl;
+  std::lock_guard lock(extensionsMutex);
+  std::lock_guard lock2(handlesMutex);
 
-  auto it = mExtensions.find(id);
-  if (it == mExtensions.end())
+  auto ext = extensions.find(id);
+  if (ext == extensions.end())
     throw std::runtime_error("Extension not loaded");
 
-  delete it->second;
-  mExtensions.erase(it);
-  std::cout << "Unloaded " << id << std::endl;
+  const auto name    = ext->second->name;
+  const auto version = ext->second->version;
+  std::cout << "Unloading " << name << " " << version << std::endl;
+
+  auto handle = handles.find(id);
+  if (handle == handles.end())
+    throw std::runtime_error("Extension not loaded");
+
+  delete ext->second;
+  extensions.erase(ext);
+
+  Utils::freeLibrary(handle->second);
+  handles.erase(handle);
+  std::cout << "Unloaded " << name << " v" << version << std::endl;
 }
 
 void Manager::downloadExtension(const std::string &id, bool update)
 {
-  std::lock_guard lock(mExtensionsMutex);
-  if (getExtensionInfo(id) == nullptr)
-    throw std::runtime_error("Extension not found");
-
-  auto it = mExtensions.find(id);
-  if (!update && it != mExtensions.end())
-    throw std::runtime_error("Extension already installed");
-
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  const std::string name {id + ".dll"};
-  const std::string url {dataBaseUrl + "/windows/" + name};
-#else
-  const std::string name {"lib" + id + ".so"};
-  const std::string url {dataBaseUrl + "/linux/" + name};
-#endif
+  static std::mutex mutex;
+  std::lock_guard lock(mutex);
 
   if (!fs::exists(extensionsDir))
     fs::create_directory(extensionsDir);
 
-  const auto path {fs::path(extensionsDir) / name};
+  const auto info = getExtensionInfo(id);
+  if (info == nullptr)
+    throw std::runtime_error("Extension not found");
+
+  const std::string sourceName {info->language + "." + info->id + "-v" + info->version};
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+  const std::string localName {id + ".dll"};
+  const std::string url {dataBaseUrl + "/windows/" + sourceName + ".dll"};
+#else
+  const std::string localName {id + ".so"};
+  const std::string url {dataBaseUrl + "/linux/" + sourceName + ".so"};
+#endif
+
+  const auto path = (fs::path(extensionsDir) / localName).string();
   if (fs::exists(path)) {
     if (!update)
-      return;
-    if (it != mExtensions.end())
-      mExtensions.erase(it);
-    fs::remove(path);
+      throw std::runtime_error("Extension already installed");
+    removeExtension(id);
   }
 
-  std::cout << "Downloading " << name << "..." << std::endl;
-  int code = Http::download(url, path.string());
+  std::cout << "Downloading " << info->name << "..." << std::endl;
+  int code = Http::download(url, path);
   if (code != 200)
     throw std::runtime_error("Unable to download extension");
 
-  std::cout << "Loading " << name << "..." << std::endl;
-  LOAD_EXTENSION;
+  loadExtension(path);
 }
 
 void Manager::removeExtension(const std::string &id, fs::path path)
 {
-  std::lock_guard lock(mExtensionsMutex);
-
   if (getExtensionInfo(id) == nullptr)
     throw std::runtime_error("Extension not found");
 
-  auto it = mExtensions.find(id);
-  if (it != mExtensions.end())
-    mExtensions.erase(it);
+  try {
+    unloadExtension(id);
+  } catch (...) {
+  }
 
   if (path.empty()) {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-    const std::string name {id + ".dll"};
+    const std::string localName {id + ".dll"};
 #else
-    const std::string name {"lib" + id + ".so"};
+    const std::string localName {id + ".so"};
 #endif
-    path = fs::absolute(fs::path(extensionsDir) / name);
+    path = fs::absolute(fs::path(extensionsDir) / localName);
   }
 
   if (fs::exists(path))
@@ -206,7 +212,7 @@ void Manager::updateExtension(const std::string &id)
 
 void Manager::updateExtensionIndexes()
 {
-  std::lock_guard lock(mIndexesMutex);
+  std::lock_guard lock(indexesMutex);
 
   const time_t now {time(nullptr)};
   const double minutes {difftime(now, indexLastUpdated) / 60.0};
@@ -240,7 +246,7 @@ void Manager::updateExtensionIndexes()
       json["language"].asString(),
       json["version"].asString(),
     };
-    mIndexes.insert(std::make_pair(info.id, info));
+    indexes.emplace(info.id, info);
 
     auto ext = getExtension(info.id);
     if (ext != nullptr)
@@ -373,6 +379,6 @@ std::vector<std::string> Manager::getLocalExtensionPaths()
   std::vector<std::string> result {};
   for (const auto &dirEntry : fs::recursive_directory_iterator(extensionsDir))
     if (dirEntry.is_regular_file())
-      result.push_back(dirEntry.path().filename().string());
+      result.push_back(dirEntry.path().string());
   return result;
 }
