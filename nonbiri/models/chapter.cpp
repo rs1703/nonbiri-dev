@@ -5,12 +5,12 @@
 #include <nonbiri/models/chapter.h>
 #include <nonbiri/utility.h>
 
-Chapter::Chapter(const std::string &sourceId, const Chapter_t &chapter) : sourceId(sourceId), Chapter_t(chapter) {}
+Chapter::Chapter(const std::string &sourceId, const Chapter_t &chapter) : Chapter_t(chapter), sourceId(sourceId) {}
 
 Chapter::Chapter(int64_t mangaId, const std::string &sourceId, const Chapter_t &chapter) :
+  Chapter_t(chapter),
   mangaId(mangaId),
-  sourceId(sourceId),
-  Chapter_t(chapter)
+  sourceId(sourceId)
 {
 }
 
@@ -26,7 +26,7 @@ Chapter::~Chapter()
 
 bool Chapter::operator==(const Chapter &other) const
 {
-  return id == other.id || sourceId == other.sourceId && path == other.path;
+  return id == other.id || (sourceId == other.sourceId && path == other.path);
 }
 
 Json::Value Chapter::toJson()

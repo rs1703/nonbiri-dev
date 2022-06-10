@@ -25,19 +25,19 @@ using httplib::Response;
 
 Api::Api()
 {
-  GET("/api/extensions/filters/?", getExtensionFilters);
-  GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
-  POST("/api/extensions/?", refreshExtensions);
-  POST("/api/extensions/install/?", installExtension);
-  POST("/api/extensions/uninstall/?", uninstallExtension);
-  POST("/api/extensions/update/?", updateExtension);
+  HTTP_GET("/api/extensions/filters/?", getExtensionFilters);
+  HTTP_GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
+  HTTP_POST("/api/extensions/?", refreshExtensions);
+  HTTP_POST("/api/extensions/install/?", installExtension);
+  HTTP_POST("/api/extensions/uninstall/?", uninstallExtension);
+  HTTP_POST("/api/extensions/update/?", updateExtension);
 
-  GET("/api/manga/?", getLatests);
-  GET("/api/search/?", searchManga);
-  GET("/api/metadata/?", getManga);
-  GET("/api/chapters/?", getChapters);
-  GET("/api/pages/?", getPages);
-  POST("/api/library/manga/readState", setMangaReadState);
+  HTTP_GET("/api/manga/?", getLatests);
+  HTTP_GET("/api/search/?", searchManga);
+  HTTP_GET("/api/metadata/?", getManga);
+  HTTP_GET("/api/chapters/?", getChapters);
+  HTTP_GET("/api/pages/?", getPages);
+  HTTP_POST("/api/library/manga/readState", setMangaReadState);
 }
 
 void Api::getExtensions(const Request &req, Response &res)
@@ -113,7 +113,7 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
 
     Json::Value root {};
     for (const auto &filter : filters) {
-      if (!filter->isHidden)
+      if (!filter->hidden)
         root.append(filter->toJson());
     }
 
@@ -199,7 +199,7 @@ void Api::searchManga(const Request &req, Response &res)
 
     int page {1};
     std::string query {};
-    std::vector<Filter::Pair> pairs {};
+    std::vector<std::pair<std::string, std::string>> pairs {};
 
     const auto &filtersIndex = ext->getFiltersIndex();
     for (const auto &[key, value] : req.params) {

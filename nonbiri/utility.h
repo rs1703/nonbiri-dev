@@ -17,6 +17,6 @@ struct ExecTime
   ExecTime(const std::string &name);
   ~ExecTime();
 };
-};  // namespace Utils
+}  // namespace Utils
 
 #endif  // NONBIRI_UTILITY_H_

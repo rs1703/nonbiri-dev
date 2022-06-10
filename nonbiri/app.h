@@ -8,6 +8,6 @@ extern int port;
 
 void initialize(int argc, char *argv[]);
 void start();
-};  // namespace App
+}  // namespace App
 
 #endif  // NONBIRI_APP_H_

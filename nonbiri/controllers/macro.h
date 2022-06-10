@@ -17,8 +17,8 @@
   res.status = code; \
   return res.set_content(body, mime);
 
-#define GET(path, callback)    App::server->Get(path, [&](const Request &req, Response &res) { callback(req, res); })
-#define POST(path, callback)   App::server->Post(path, [&](const Request &req, Response &res) { callback(req, res); })
-#define DELETE(path, callback) App::server->Delete(path, [&](const Request &req, Response &res) { callback(req, res); })
+#define HTTP_GET(path, callback)    App::server->Get(path, [&](const Request &req, Response &res) { callback(req, res); })
+#define HTTP_POST(path, callback)   App::server->Post(path, [&](const Request &req, Response &res) { callback(req, res); })
+#define HTTP_DELETE(path, callback) App::server->Delete(path, [&](const Request &req, Response &res) { callback(req, res); })
 
 #endif  // NONBIRI_CONTROLLERS_MACRO_H_

@@ -8,7 +8,7 @@
 #include <nonbiri/models/manga.h>
 #include <nonbiri/utility.h>
 
-Manga::Manga(const std::string &sourceId, const Manga_t &manga) : sourceId(sourceId), Manga_t(manga) {}
+Manga::Manga(const std::string &sourceId, const Manga_t &manga) : Manga_t(manga), sourceId(sourceId) {}
 
 Manga::Manga(sqlite3_stmt *stmt)
 {
@@ -22,7 +22,7 @@ Manga::~Manga()
 
 bool Manga::operator==(const Manga &other) const
 {
-  return id == other.id || sourceId == other.sourceId && path == other.path;
+  return id == other.id || (sourceId == other.sourceId && path == other.path);
 }
 
 Json::Value Manga::toJson()

@@ -269,7 +269,7 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::getLatests(Extens
 }
 
 std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(
-  Extension &ext, int page, const std::string &query, const std::vector<Filter::Pair> &filters)
+  Extension &ext, int page, const std::string &query, const std::vector<std::pair<std::string, std::string>> &filters)
 {
   Utils::ExecTime execTime("Manager::searchManga(ext, page, query, filters)");
   const auto &[entries, hasNext] = ext.searchManga(page, query, filters);

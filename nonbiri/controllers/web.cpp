@@ -9,11 +9,11 @@ using httplib::Response;
 
 Web::Web()
 {
-  GET(R"(/?(history|updates|browse)?/?.*)", render);
+  HTTP_GET(R"(/?(history|updates|browse)?/?.*)", render);
   App::server->set_mount_point("/assets", "./assets");
 }
 
-void Web::render(const Request &req, Response &res)
+void Web::render(const Request &, Response &res)
 {
   static const std::string path {"index.html"};
   httplib::detail::read_file(path, res.body);

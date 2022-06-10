@@ -14,7 +14,7 @@ if(WIN32)
 	set(
 		CMAKE_CXX_FLAGS
 		"${CMAKE_CXX_FLAGS} \
-    /O2 \
+    /O3 \
 		/Wall \
 		/pipe \
 		/pedantic \
@@ -26,7 +26,7 @@ else()
 	set(
 		CMAKE_CXX_FLAGS
 		"${CMAKE_CXX_FLAGS} \
-    -O2 \
+    -O3 \
 		-Wall \
 		-Wextra \
 		-pipe \
@@ -37,7 +37,4 @@ else()
 		-fdiagnostics-color=always \
 		-Wunreachable-code \
 		-Wno-attributes")
-	if(NOT CMAKE_COMPILER_IS_GNUCXX)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wshadow")
-	endif()
 endif()

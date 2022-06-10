@@ -50,8 +50,10 @@ public:
 
   //
   std::tuple<std::vector<std::shared_ptr<Manga>>, bool> getLatests(Extension &ext, int page);
-  std::tuple<std::vector<std::shared_ptr<Manga>>, bool> searchManga(
-    Extension &ext, int page, const std::string &query, const std::vector<Filter::Pair> &filters);
+  std::tuple<std::vector<std::shared_ptr<Manga>>, bool> searchManga(Extension &ext,
+    int page,
+    const std::string &query,
+    const std::vector<std::pair<std::string, std::string>> &filters);
 
   std::shared_ptr<Manga> getManga(Extension &ext, const std::string &path);
   std::vector<std::shared_ptr<Chapter>> getChapters(Extension &ext, const std::string &path);
@@ -65,6 +67,6 @@ private:
 namespace App
 {
 extern Manager *manager;
-};  // namespace App
+}  // namespace App
 
 #endif  // NONBIRI_MANAGER_H_

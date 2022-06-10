@@ -28,6 +28,6 @@ public:
 namespace App
 {
 extern Server *server;
-};  // namespace App
+}  // namespace App
 
 #endif  // NONBIRI_SERVER_H_

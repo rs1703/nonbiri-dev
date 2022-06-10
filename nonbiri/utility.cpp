@@ -12,4 +12,4 @@ ExecTime::~ExecTime()
   std::chrono::duration<double, std::milli> duration = end - start;
   std::cout << name << " " << duration.count() << "ms" << std::endl;
 }
-};  // namespace Utils
+}  // namespace Utils
