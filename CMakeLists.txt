@@ -45,13 +45,6 @@ target_compile_features(index PRIVATE cxx_std_20)
 
 # Packages ===================================
 
-if(UNIX)
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-
-  set(LIBRARIES ${LIBRARIES} Threads::Threads -ldl)
-endif()
-
 add_definitions(-DCURL_STATICLIB)
 pkg_check_modules(CURL libcurl)
 if(CURL_FOUND)
@@ -107,3 +100,8 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBRARIES})
 target_link_libraries(index PRIVATE ${LIBRARIES})
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy
+    "${CMAKE_CURRENT_LIST_DIR}/nonbiri/schema.sql"
+    "${CMAKE_CURRENT_BINARY_DIR}/nonbiri.sql")
