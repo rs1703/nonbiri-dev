@@ -26,6 +26,7 @@ using httplib::Response;
 Api::Api()
 {
   HTTP_GET("/api/extensions/filters/?", getExtensionFilters);
+  HTTP_GET("/api/extensions/prefs/?", getExtensionFilters);
   HTTP_GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
   HTTP_POST("/api/extensions/?", refreshExtensions);
   HTTP_POST("/api/extensions/install/?", installExtension);
@@ -53,29 +54,15 @@ void Api::getExtensions(const Request &req, Response &res)
 
     if (req.matches[1].str() == "index" || isRefresh) {
       const auto &indexes = App::manager->getIndexes();
-      for (const auto &[_, info] : indexes) {
-        Json::Value json {};
-        json["id"]          = info.id;
-        json["name"]        = info.name;
-        json["baseUrl"]     = info.baseUrl;
-        json["language"]    = info.language;
-        json["version"]     = info.version;
-        json["isNsfw"]      = info.isNsfw;
-        json["isInstalled"] = extensions.find(info.id) != extensions.end();
-
+      for (const auto &info : indexes) {
+        Json::Value json    = info.second.toJson();
+        json["isInstalled"] = extensions.find(info.second.id) != extensions.end();
         root.append(json);
       }
     } else {
-      for (const auto &[_, ext] : extensions) {
-        Json::Value json {};
-        json["id"]        = ext->id;
-        json["name"]      = ext->name;
-        json["baseUrl"]   = ext->baseUrl;
-        json["language"]  = ext->language;
-        json["version"]   = ext->version;
-        json["isNsfw"]    = ext->isNsfw;
-        json["hasUpdate"] = (bool)ext->hasUpdate;
-
+      for (const auto &ext : extensions) {
+        Json::Value json  = ext.second->toJson();
+        json["hasUpdate"] = ext.second->hasUpdate.load();
         root.append(json);
       }
     }

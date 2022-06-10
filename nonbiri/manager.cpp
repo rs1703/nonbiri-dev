@@ -26,14 +26,8 @@ Extension *createExtension(void *handle)
   if (initialize == nullptr)
     throw std::runtime_error("Unable to get fn symbol 'initialize' from extension");
 
-  initialize(Http::init,
-    Http::setOpt,
-    Http::perform,
-    Http::cleanup,
-    Http::getInfo,
-    Http::slist_append,
-    Http::slist_freeAll,
-    Http::getError);
+  initialize(
+    Http::init, Http::setOpt, Http::perform, Http::cleanup, Http::getInfo, Http::slist_append, Http::slist_freeAll, Http::getError);
 
   auto create = (create_t)Utils::getSymbol(handle, "create");
   if (create == nullptr)
@@ -114,7 +108,7 @@ void Manager::loadExtension(const std::string &path)
   }
 
   const auto info = getExtensionInfo(ext->id);
-  ext->hasUpdate  = info != nullptr && ext->version != info->version;
+  ext->hasUpdate.store(info != nullptr && ext->version != info->version);
 
   extensions.insert(std::make_pair(ext->id, ext));
   handles.insert(std::make_pair(ext->id, handle));
@@ -250,7 +244,7 @@ void Manager::updateExtensionIndexes()
 
     auto ext = getExtension(info.id);
     if (ext != nullptr)
-      ext->hasUpdate = ext->version != info.version;
+      ext->hasUpdate.store(ext->version != info.version);
   }
 }
 
