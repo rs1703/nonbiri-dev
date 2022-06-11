@@ -28,6 +28,8 @@ Api::Api()
 {
   HTTP_GET("/api/extensions/filters/?", getExtensionFilters);
   HTTP_GET("/api/extensions/prefs/?", getExtensionPrefs);
+  HTTP_POST("/api/extensions/prefs/?", setExtensionPrefs);
+
   HTTP_GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
   HTTP_POST("/api/extensions/?", refreshExtensions);
   HTTP_POST("/api/extensions/install/?", installExtension);
@@ -72,6 +74,7 @@ void Api::getExtensions(const Request &req, Response &res)
     Json::FastWriter writer {};
     REPLY(200, root.empty() ? "[]" : writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -84,6 +87,46 @@ void Api::refreshExtensions(const Request &req, Response &res)
     res.set_header("refresh", "1");
     getExtensions(req, res);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    REPLY(500, JSON_EXCEPTION, MIME_JSON);
+  }
+}
+
+void Api::installExtension(const Request &req, Response &res)
+{
+  Utils::ExecTime execTime("Api::installExtension");
+  try {
+    REQUIRE_EXTENSION_ID;
+    App::manager->downloadExtension(sourceId, false);
+    getExtensions(req, res);
+  } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    REPLY(500, JSON_EXCEPTION, MIME_JSON);
+  }
+}
+
+void Api::uninstallExtension(const Request &req, Response &res)
+{
+  Utils::ExecTime execTime("Api::uninstallExtension");
+  try {
+    REQUIRE_EXTENSION_ID;
+    App::manager->removeExtension(sourceId);
+    getExtensions(req, res);
+  } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    REPLY(500, JSON_EXCEPTION, MIME_JSON);
+  }
+}
+
+void Api::updateExtension(const Request &req, Response &res)
+{
+  Utils::ExecTime execTime("Api::updateExtension");
+  try {
+    REQUIRE_EXTENSION_ID;
+    App::manager->updateExtension(sourceId);
+    getExtensions(req, res);
+  } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -101,14 +144,14 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
     const auto &filters = ext->getFilters();
 
     Json::Value root {};
-    for (const auto &filter : filters) {
+    for (const auto &filter : filters)
       if (!filter->hidden)
         root.append(filter->toJson());
-    }
 
     Json::FastWriter writer {};
     REPLY(200, root.empty() ? "[]" : writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -123,50 +166,64 @@ void Api::getExtensionPrefs(const httplib::Request &req, httplib::Response &res)
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    const auto *pref = dynamic_cast<Pref::Prefs *>(ext);
-    if (pref == nullptr) {
+    const auto *prefs = dynamic_cast<Pref::Prefs *>(ext);
+    if (prefs == nullptr) {
       ABORT(404, JSON_ERROR("Extension does not have prefs"), MIME_JSON);
     }
 
     Json::FastWriter writer {};
-    REPLY(200, writer.write(pref->toJson(true)), MIME_JSON);
+    REPLY(200, writer.write(prefs->toJson(true)), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
 
-void Api::installExtension(const Request &req, Response &res)
+void Api::setExtensionPrefs(const httplib::Request &req, httplib::Response &res)
 {
-  Utils::ExecTime execTime("Api::installExtension");
+  Utils::ExecTime execTime("Api::setExtensionPrefs");
   try {
     REQUIRE_EXTENSION_ID;
-    App::manager->downloadExtension(sourceId, false);
-    getExtensions(req, res);
-  } catch (const std::exception &e) {
-    REPLY(500, JSON_EXCEPTION, MIME_JSON);
-  }
-}
+    Extension *ext = App::manager->getExtension(sourceId);
+    if (ext == nullptr) {
+      ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
+    }
 
-void Api::uninstallExtension(const Request &req, Response &res)
-{
-  Utils::ExecTime execTime("Api::uninstallExtension");
-  try {
-    REQUIRE_EXTENSION_ID;
-    App::manager->removeExtension(sourceId);
-    getExtensions(req, res);
-  } catch (const std::exception &e) {
-    REPLY(500, JSON_EXCEPTION, MIME_JSON);
-  }
-}
+    auto *prefs = dynamic_cast<Pref::Prefs *>(ext);
+    if (prefs == nullptr) {
+      ABORT(404, JSON_ERROR("Extension does not have prefs"), MIME_JSON);
+    }
 
-void Api::updateExtension(const Request &req, Response &res)
-{
-  Utils::ExecTime execTime("Api::updateExtension");
-  try {
-    REQUIRE_EXTENSION_ID;
-    App::manager->updateExtension(sourceId);
-    getExtensions(req, res);
+    Json::Reader reader {};
+    Json::Value payload {};
+    if (!reader.parse(req.body, payload)) {
+      ABORT(400, JSON_ERROR("Unable to parse payload"), MIME_JSON);
+    }
+
+    std::vector<std::string> invalidKeys {};
+    for (const auto &obj : payload) {
+      if (!obj.isObject() || !obj.isMember("key") || !obj.isMember("value")) {
+        ABORT(400, JSON_ERROR("Payload must be an array of objects, each with a key and value"), MIME_JSON);
+      }
+
+      const std::string key = obj["key"].asString();
+      if (prefs->set(key, obj["value"]) < 0)
+        invalidKeys.push_back(key);
+    }
+
+    Json::Value root {};
+    root["new"] = prefs->toJson();
+
+    if (!invalidKeys.empty()) {
+      root["error"] = "Payload contains invalid keys";
+      for (const auto &key : invalidKeys)
+        root["keys"].append(key);
+    }
+
+    Json::FastWriter writer {};
+    REPLY(200, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -194,6 +251,7 @@ void Api::getLatests(const Request &req, Response &res)
     Json::FastWriter writer {};
     REPLY(200, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -234,6 +292,7 @@ void Api::searchManga(const Request &req, Response &res)
     Json::FastWriter writer {};
     REPLY(200, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -258,6 +317,7 @@ void Api::getManga(const Request &req, Response &res)
     Json::FastWriter writer {};
     REPLY(200, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -282,6 +342,7 @@ void Api::getChapters(const Request &req, Response &res)
 
     REPLY(200, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -306,6 +367,7 @@ void Api::getPages(const Request &req, Response &res)
 
     REPLY(200, writer.write(root), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
@@ -341,6 +403,7 @@ void Api::setMangaReadState(const Request &req, Response &res)
     Json::FastWriter writer {};
     REPLY(200, writer.write(manga->toJson()), MIME_JSON);
   } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
 }
