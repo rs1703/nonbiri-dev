@@ -3,11 +3,12 @@
 
 #define MIME_JSON "application/json"
 
-#define JSON_BAD_REQUEST          "{\"error\": \"Bad request\"}"
-#define JSON_EXCEPTION            "{\"error\": \"" + std::string(e.what()) + "\"}"
-#define JSON_EXTENSION_NOT_FOUND  "{\"error\": \"Extension not found\"}"
-#define JSON_MANGA_NOT_FOUND      "{\"error\": \"Manga not found\"}"
-#define JSON_MISSING_PARAM(param) "{\"error\": \"Missing parameter: " + std::string(param) + "\"}"
+#define JSON_ERROR(error)         "{\"error\": \"" + std::string(error) + "\"}"
+#define JSON_BAD_REQUEST          JSON_ERROR("Bad Request")
+#define JSON_EXCEPTION            JSON_ERROR(e.what())
+#define JSON_EXTENSION_NOT_FOUND  JSON_ERROR("Extension not found")
+#define JSON_MANGA_NOT_FOUND      JSON_ERROR("Manga not found")
+#define JSON_MISSING_PARAM(param) JSON_ERROR("Missing parameter: " + std::string(param))
 
 #define REPLY(code, body, mime) \
   res.status = code; \

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <core/pref.h>
 #include <json/json.h>
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/macro.h>
@@ -26,7 +27,7 @@ using httplib::Response;
 Api::Api()
 {
   HTTP_GET("/api/extensions/filters/?", getExtensionFilters);
-  HTTP_GET("/api/extensions/prefs/?", getExtensionFilters);
+  HTTP_GET("/api/extensions/prefs/?", getExtensionPrefs);
   HTTP_GET(R"(/api/extensions/?(\w+)?/?)", getExtensions);
   HTTP_POST("/api/extensions/?", refreshExtensions);
   HTTP_POST("/api/extensions/install/?", installExtension);
@@ -63,6 +64,7 @@ void Api::getExtensions(const Request &req, Response &res)
       for (const auto &ext : extensions) {
         Json::Value json  = ext.second->toJson();
         json["hasUpdate"] = ext.second->hasUpdate.load();
+        json["hasPrefs"]  = dynamic_cast<Pref::Prefs *>(ext.second) != nullptr;
         root.append(json);
       }
     }
@@ -106,6 +108,28 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
 
     Json::FastWriter writer {};
     REPLY(200, root.empty() ? "[]" : writer.write(root), MIME_JSON);
+  } catch (const std::exception &e) {
+    REPLY(500, JSON_EXCEPTION, MIME_JSON);
+  }
+}
+
+void Api::getExtensionPrefs(const httplib::Request &req, httplib::Response &res)
+{
+  Utils::ExecTime execTime("Api::getExtensionPrefs");
+  try {
+    REQUIRE_EXTENSION_ID;
+    Extension *ext = App::manager->getExtension(sourceId);
+    if (ext == nullptr) {
+      ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
+    }
+
+    const auto *pref = dynamic_cast<Pref::Prefs *>(ext);
+    if (pref == nullptr) {
+      ABORT(404, JSON_ERROR("Extension does not have prefs"), MIME_JSON);
+    }
+
+    Json::FastWriter writer {};
+    REPLY(200, writer.write(pref->toJson(true)), MIME_JSON);
   } catch (const std::exception &e) {
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
   }
