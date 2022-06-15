@@ -182,25 +182,25 @@ void Chapter::deserialize(sqlite3_stmt *stmt)
   if (stmt == nullptr)
     throw std::invalid_argument("stmt cannot be null");
 
-  id           = sqlite3_column_int64(stmt, 0);
-  mangaId      = sqlite3_column_int64(stmt, 1);
-  sourceId     = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
-  addedAt      = sqlite3_column_int64(stmt, 3);
-  updatedAt    = sqlite3_column_int64(stmt, 4);
-  publishedAt  = sqlite3_column_int64(stmt, 5);
+  id = sqlite3_column_int64(stmt, 0);
+  mangaId = sqlite3_column_int64(stmt, 1);
+  sourceId = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+  addedAt = sqlite3_column_int64(stmt, 3);
+  updatedAt = sqlite3_column_int64(stmt, 4);
+  publishedAt = sqlite3_column_int64(stmt, 5);
   downloadedAt = sqlite3_column_int64(stmt, 6);
-  lastReadAt   = sqlite3_column_int64(stmt, 7);
+  lastReadAt = sqlite3_column_int64(stmt, 7);
   lastReadPage = sqlite3_column_int(stmt, 8);
-  readCount    = sqlite3_column_int(stmt, 9);
-  path         = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 10));
-  name         = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 11));
+  readCount = sqlite3_column_int(stmt, 9);
+  path = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 10));
+  name = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 11));
 
   const void *blob = sqlite3_column_blob(stmt, 12);
   if (blob != nullptr) {
     auto str = std::string(reinterpret_cast<const char *>(blob), sqlite3_column_bytes(stmt, 12));
-    pages    = Database::deserializeArray(str);
+    pages = Database::deserializeArray(str);
   }
 
-  pageCount    = sqlite3_column_int(stmt, 13);
+  pageCount = sqlite3_column_int(stmt, 13);
   isDownloaded = sqlite3_column_int(stmt, 14);
 }

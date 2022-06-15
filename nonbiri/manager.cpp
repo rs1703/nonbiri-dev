@@ -124,7 +124,7 @@ void Manager::unloadExtension(const std::string &id)
   if (ext == extensions.end())
     throw std::runtime_error("Extension not loaded");
 
-  const auto name    = ext->second->name;
+  const auto name = ext->second->name;
   const auto version = ext->second->version;
   std::cout << "Unloading " << name << " v" << version << std::endl;
 

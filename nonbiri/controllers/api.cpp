@@ -58,15 +58,15 @@ void Api::getExtensions(const Request &req, Response &res)
     if (req.matches[1].str() == "index" || isRefresh) {
       const auto &indexes = App::manager->getIndexes();
       for (const auto &info : indexes) {
-        Json::Value json    = info.second.toJson();
+        Json::Value json = info.second.toJson();
         json["isInstalled"] = extensions.find(info.second.id) != extensions.end();
         root.append(json);
       }
     } else {
       for (const auto &ext : extensions) {
-        Json::Value json  = ext.second->toJson();
+        Json::Value json = ext.second->toJson();
         json["hasUpdate"] = ext.second->hasUpdate.load();
-        json["hasPrefs"]  = dynamic_cast<Pref::Prefs *>(ext.second) != nullptr;
+        json["hasPrefs"] = dynamic_cast<Pref::Prefs *>(ext.second) != nullptr;
         root.append(json);
       }
     }
@@ -239,11 +239,11 @@ void Api::getLatests(const Request &req, Response &res)
     }
 
     REQUIRE_PARAM(sPage, "page");
-    const int page                 = std::max(1, sPage.empty() ? 1 : std::stoi(sPage));
+    const int page = std::max(1, sPage.empty() ? 1 : std::stoi(sPage));
     const auto &[entries, hasNext] = App::manager->getLatests(*ext, page);
 
     Json::Value root {};
-    root["page"]    = page;
+    root["page"] = page;
     root["hasNext"] = hasNext;
     for (const auto &manga : entries)
       root["entries"].append(manga->toJson());
@@ -284,7 +284,7 @@ void Api::searchManga(const Request &req, Response &res)
     const auto &[entries, hasNext] = App::manager->searchManga(*ext, page, query, pairs);
 
     Json::Value root {};
-    root["page"]    = page;
+    root["page"] = page;
     root["hasNext"] = hasNext;
     for (const auto &manga : entries)
       root["entries"].append(manga->toJson());

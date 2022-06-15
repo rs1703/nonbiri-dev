@@ -544,18 +544,18 @@ void Manga::deserialize(sqlite3_stmt *stmt)
   if (stmt == nullptr)
     throw std::invalid_argument("stmt cannot be null");
 
-  id             = sqlite3_column_int64(stmt, 0);
-  sourceId       = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
-  addedAt        = sqlite3_column_int64(stmt, 2);
-  updatedAt      = sqlite3_column_int64(stmt, 3);
-  lastReadAt     = sqlite3_column_int64(stmt, 4);
-  lastViewedAt   = sqlite3_column_int64(stmt, 5);
-  path           = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
-  coverUrl       = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
+  id = sqlite3_column_int64(stmt, 0);
+  sourceId = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+  addedAt = sqlite3_column_int64(stmt, 2);
+  updatedAt = sqlite3_column_int64(stmt, 3);
+  lastReadAt = sqlite3_column_int64(stmt, 4);
+  lastViewedAt = sqlite3_column_int64(stmt, 5);
+  path = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+  coverUrl = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
   customCoverUrl = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8));
-  bannerUrl      = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 9));
-  title          = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 10));
-  description    = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 11));
-  status         = static_cast<MangaStatus>(sqlite3_column_int(stmt, 12));
-  readingStatus  = static_cast<ReadingStatus>(sqlite3_column_int(stmt, 13));
+  bannerUrl = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 9));
+  title = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 10));
+  description = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 11));
+  status = static_cast<MangaStatus>(sqlite3_column_int(stmt, 12));
+  readingStatus = static_cast<ReadingStatus>(sqlite3_column_int(stmt, 13));
 }

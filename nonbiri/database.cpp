@@ -53,7 +53,7 @@ void Database::initialize()
   file.close();
 
   char *msgErr = nullptr;
-  exit         = sqlite3_exec(instance, buffer.str().c_str(), nullptr, 0, &msgErr);
+  exit = sqlite3_exec(instance, buffer.str().c_str(), nullptr, 0, &msgErr);
 
   if (exit != SQLITE_OK)
     throw std::runtime_error(msgErr);
