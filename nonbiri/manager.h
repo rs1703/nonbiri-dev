@@ -34,18 +34,18 @@ public:
   void reset();
 
   //
-  Extension *getExtension(const std::string &id);
+  Extension *getExtension(const std::string &domain);
   const std::map<std::string, Extension *> &getExtensions();
-  const ExtensionInfo *getExtensionInfo(const std::string &id);
+  const ExtensionInfo *getExtensionInfo(const std::string &domain);
   const std::map<std::string, ExtensionInfo> &getIndexes();
 
   void loadExtension(const std::string &path);
-  void unloadExtension(const std::string &id);
+  void unloadExtension(const std::string &domain);
 
-  void downloadExtension(const std::string &id, bool update = false);
-  void removeExtension(const std::string &id, std::filesystem::path path = "");
+  void downloadExtension(const std::string &domain, bool update = false);
+  void removeExtension(const std::string &domain, std::filesystem::path path = "");
 
-  void updateExtension(const std::string &id);
+  void updateExtension(const std::string &domain);
   void updateExtensionIndexes();
 
   //

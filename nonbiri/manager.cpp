@@ -58,10 +58,10 @@ Manager::~Manager()
   std::cout << "Manager::~Manager()" << std::endl;
 }
 
-Extension *Manager::getExtension(const std::string &id)
+Extension *Manager::getExtension(const std::string &domain)
 {
   std::shared_lock lock(extensionsMutex);
-  auto it = extensions.find(id);
+  auto it = extensions.find(domain);
   if (it == extensions.end())
     return nullptr;
   return it->second;
@@ -73,10 +73,10 @@ const std::map<std::string, Extension *> &Manager::getExtensions()
   return extensions;
 }
 
-const ExtensionInfo *Manager::getExtensionInfo(const std::string &id)
+const ExtensionInfo *Manager::getExtensionInfo(const std::string &domain)
 {
   std::shared_lock lock(indexesMutex);
-  auto it = indexes.find(id);
+  auto it = indexes.find(domain);
   if (it == indexes.end())
     return nullptr;
   return &it->second;
@@ -102,25 +102,25 @@ void Manager::loadExtension(const std::string &path)
     throw std::runtime_error("Unable to load extension");
 
   auto ext = createExtension(handle);
-  if (extensions.find(ext->id) != extensions.end()) {
+  if (extensions.find(ext->domain) != extensions.end()) {
     Utils::freeLibrary(handle);
     throw std::runtime_error("Extension already loaded");
   }
 
-  const auto info = getExtensionInfo(ext->id);
+  const auto info = getExtensionInfo(ext->domain);
   ext->hasUpdate.store(info != nullptr && ext->version != info->version);
 
-  extensions.insert(std::make_pair(ext->id, ext));
-  handles.insert(std::make_pair(ext->id, handle));
+  extensions.insert(std::make_pair(ext->domain, ext));
+  handles.insert(std::make_pair(ext->domain, handle));
   std::cout << "Loaded " << ext->name << " v" << ext->version << std::endl;
 }
 
-void Manager::unloadExtension(const std::string &id)
+void Manager::unloadExtension(const std::string &domain)
 {
   std::lock_guard lock(extensionsMutex);
   std::lock_guard lock2(handlesMutex);
 
-  auto ext = extensions.find(id);
+  auto ext = extensions.find(domain);
   if (ext == extensions.end())
     throw std::runtime_error("Extension not loaded");
 
@@ -128,7 +128,7 @@ void Manager::unloadExtension(const std::string &id)
   const auto version = ext->second->version;
   std::cout << "Unloading " << name << " v" << version << std::endl;
 
-  auto handle = handles.find(id);
+  auto handle = handles.find(domain);
   if (handle == handles.end())
     throw std::runtime_error("Extension not loaded");
 
@@ -140,7 +140,7 @@ void Manager::unloadExtension(const std::string &id)
   std::cout << "Unloaded " << name << " v" << version << std::endl;
 }
 
-void Manager::downloadExtension(const std::string &id, bool update)
+void Manager::downloadExtension(const std::string &domain, bool update)
 {
   static std::mutex mutex;
   std::lock_guard lock(mutex);
@@ -148,16 +148,16 @@ void Manager::downloadExtension(const std::string &id, bool update)
   if (!fs::exists(extensionsDir))
     fs::create_directory(extensionsDir);
 
-  const auto info = getExtensionInfo(id);
+  const auto info = getExtensionInfo(domain);
   if (info == nullptr)
     throw std::runtime_error("Extension not found");
 
-  const std::string sourceName {info->language + "." + info->id + "-v" + info->version};
+  const std::string sourceName {info->language + "." + info->domain + "-v" + info->version};
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  const std::string localName {id + ".dll"};
+  const std::string localName {domain + ".dll"};
   const std::string url {dataBaseUrl + "/windows/" + sourceName + ".dll"};
 #else
-  const std::string localName {id + ".so"};
+  const std::string localName {domain + ".so"};
   const std::string url {dataBaseUrl + "/linux/" + sourceName + ".so"};
 #endif
 
@@ -165,7 +165,7 @@ void Manager::downloadExtension(const std::string &id, bool update)
   if (fs::exists(path)) {
     if (!update)
       throw std::runtime_error("Extension already installed");
-    removeExtension(id);
+    removeExtension(domain);
   }
 
   std::cout << "Downloading " << info->name << "..." << std::endl;
@@ -176,21 +176,21 @@ void Manager::downloadExtension(const std::string &id, bool update)
   loadExtension(path);
 }
 
-void Manager::removeExtension(const std::string &id, fs::path path)
+void Manager::removeExtension(const std::string &domain, fs::path path)
 {
-  if (getExtensionInfo(id) == nullptr)
+  if (getExtensionInfo(domain) == nullptr)
     throw std::runtime_error("Extension not found");
 
   try {
-    unloadExtension(id);
+    unloadExtension(domain);
   } catch (...) {
   }
 
   if (path.empty()) {
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-    const std::string localName {id + ".dll"};
+    const std::string localName {domain + ".dll"};
 #else
-    const std::string localName {id + ".so"};
+    const std::string localName {domain + ".so"};
 #endif
     path = fs::absolute(fs::path(extensionsDir) / localName);
   }
@@ -199,9 +199,9 @@ void Manager::removeExtension(const std::string &id, fs::path path)
     fs::remove(path);
 }
 
-void Manager::updateExtension(const std::string &id)
+void Manager::updateExtension(const std::string &domain)
 {
-  downloadExtension(id, true);
+  downloadExtension(domain, true);
 }
 
 void Manager::updateExtensionIndexes()
@@ -231,18 +231,19 @@ void Manager::updateExtensionIndexes()
   if (!reader.parse(res->body, root))
     throw std::runtime_error("Unable to parse extensions index: " + reader.getFormattedErrorMessages());
 
-  for (const auto &key : root.getMemberNames()) {
-    const auto &json = root[key];
+  for (const auto &domain : root.getMemberNames()) {
+    const auto &json = root[domain];
     ExtensionInfo info {
-      json["id"].asString(),
-      json["baseUrl"].asString(),
-      json["name"].asString(),
-      json["language"].asString(),
-      json["version"].asString(),
+      .domain = domain,
+      .baseUrl = json["baseUrl"].asString(),
+      .name = json["name"].asString(),
+      .language = json["language"].asString(),
+      .version = json["version"].asString(),
+      .isNsfw = json["isNsfw"].asBool(),
     };
-    indexes.emplace(info.id, info);
+    indexes.emplace(domain, info);
 
-    auto ext = getExtension(info.id);
+    auto ext = getExtension(domain);
     if (ext != nullptr)
       ext->hasUpdate.store(ext->version != info.version);
   }
@@ -255,7 +256,7 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::getLatests(Extens
 
   std::vector<std::shared_ptr<Manga>> manga {};
   for (const auto &e : entries) {
-    const auto entry = std::make_shared<Manga>(ext.id, *e);
+    const auto entry = std::make_shared<Manga>(ext.domain, *e);
     entry->getReadState();
     manga.push_back(entry);
   }
@@ -270,7 +271,7 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(
 
   std::vector<std::shared_ptr<Manga>> manga {};
   for (const auto &e : entries) {
-    const auto entry = std::make_shared<Manga>(ext.id, *e);
+    const auto entry = std::make_shared<Manga>(ext.domain, *e);
     entry->getReadState();
     manga.push_back(entry);
   }
@@ -280,7 +281,7 @@ std::tuple<std::vector<std::shared_ptr<Manga>>, bool> Manager::searchManga(
 std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path)
 {
   Utils::ExecTime execTime("Manager::getManga(ext, path)");
-  const auto cacheKey {ext.id + path};
+  const auto cacheKey {ext.domain + path};
   if (Cache::manga.has(cacheKey)) {
     const auto manga = Cache::manga.get(cacheKey);
     if (manga->id > 0)
@@ -290,7 +291,7 @@ std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path
   }
 
   try {
-    const auto manga = Manga::find(ext.id, path);
+    const auto manga = Manga::find(ext.domain, path);
     if (manga != nullptr)
       return manga;
   } catch (const std::exception &e) {
@@ -300,10 +301,10 @@ std::shared_ptr<Manga> Manager::getManga(Extension &ext, const std::string &path
   std::shared_ptr<Manga> manga {nullptr};
   try {
     const auto m = ext.getManga(path);
-    if (m != nullptr) {
-      manga = std::make_shared<Manga>(ext.id, *m);
-    }
+    if (m != nullptr)
+      manga = std::make_shared<Manga>(ext.domain, *m);
   } catch (const std::exception &e) {
+    std::cerr << "Unable to fetch manga: " << e.what() << std::endl;
   }
 
   if (manga != nullptr)
@@ -331,7 +332,7 @@ std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, Manga
     std::cerr << "Unable to get chapters: " << e.what() << std::endl;
   }
 
-  const auto cacheKey {ext.id + manga.path};
+  const auto cacheKey {ext.domain + manga.path};
   if (Cache::chapters.has(cacheKey)) {
     const auto chapters = Cache::chapters.get(cacheKey);
     if (manga.id > 0) {
@@ -346,7 +347,7 @@ std::vector<std::shared_ptr<Chapter>> Manager::getChapters(Extension &ext, Manga
   try {
     const auto entries = ext.getChapters(manga.path);
     for (const auto &e : entries) {
-      const auto entry = std::make_shared<Chapter>(manga.id, ext.id, *e);
+      const auto entry = std::make_shared<Chapter>(manga.id, ext.domain, *e);
       chapters.push_back(entry);
     }
   } catch (const std::exception &e) {

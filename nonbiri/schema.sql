@@ -18,7 +18,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS scanlation_group_name_unique_idx ON scanlation
 
 CREATE TABLE IF NOT EXISTS manga (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_id         TEXT NOT NULL,
+  domain            TEXT NOT NULL,
 
   added_at          INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   updated_at        INTEGER,
@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS manga (
   reading_status    INTEGER DEFAULT 1
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS manga_uidx ON manga(source_id, path);
-CREATE INDEX IF NOT EXISTS manga_source_id_idx ON manga(source_id);
+CREATE UNIQUE INDEX IF NOT EXISTS manga_uidx ON manga(domain, path);
+CREATE INDEX IF NOT EXISTS manga_domain_idx ON manga(domain);
 CREATE INDEX IF NOT EXISTS manga_added_at_idx ON manga(added_at);
 CREATE INDEX IF NOT EXISTS manga_updated_at_idx ON manga(updated_at);
 CREATE INDEX IF NOT EXISTS manga_last_read_at_idx ON manga(last_read_at);
@@ -73,7 +73,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS manga_genres_uidx ON manga_genres (manga_id, g
 CREATE TABLE IF NOT EXISTS chapter (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   manga_id        INTEGER NOT NULL REFERENCES manga (id),
-  source_id       TEXT NOT NULL,
+  domain          TEXT NOT NULL,
 
   added_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   updated_at      INTEGER,
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS chapter (
   downloaded      INTEGER DEFAULT 0
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS chapter_uidx ON chapter(manga_id, source_id, path);
+CREATE UNIQUE INDEX IF NOT EXISTS chapter_uidx ON chapter(manga_id, domain, path);
 CREATE INDEX IF NOT EXISTS chapter_added_at_idx ON chapter(added_at);
 CREATE INDEX IF NOT EXISTS chapter_updated_at_idx ON chapter(updated_at);
 CREATE INDEX IF NOT EXISTS chapter_published_at_idx ON chapter(published_at);

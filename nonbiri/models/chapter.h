@@ -14,7 +14,7 @@ class Chapter : public Chapter_t
 public:
   int64_t id {};
   int64_t mangaId {};
-  std::string sourceId {};
+  std::string domain {};
   int64_t addedAt {};
   int64_t updatedAt {};
   int64_t downloadedAt {};
@@ -27,8 +27,8 @@ public:
 
 public:
   Chapter() = default;
-  Chapter(const std::string &sourceId, const Chapter_t &chapter);
-  Chapter(int64_t mangaId, const std::string &sourceId, const Chapter_t &chapter);
+  Chapter(const std::string &domain, const Chapter_t &chapter);
+  Chapter(int64_t mangaId, const std::string &domain, const Chapter_t &chapter);
   Chapter(sqlite3_stmt *stmt);
   ~Chapter();
 
@@ -36,7 +36,7 @@ public:
   Json::Value toJson();
   void save(int64_t mangaId = 0);
 
-  static std::shared_ptr<Chapter> find(std::string sourceId, std::string path);
+  static std::shared_ptr<Chapter> find(std::string domain, std::string path);
   static std::vector<std::shared_ptr<Chapter>> findAll(int64_t mangaId);
   static void saveAll(const std::vector<std::shared_ptr<Chapter>> &chapters, int64_t mangaId = 0);
 

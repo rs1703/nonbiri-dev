@@ -8,7 +8,7 @@
 #include <nonbiri/models/manga.h>
 #include <nonbiri/utility.h>
 
-Manga::Manga(const std::string &sourceId, const Manga_t &manga) : Manga_t(manga), sourceId(sourceId) {}
+Manga::Manga(const std::string &domain, const Manga_t &manga) : Manga_t(manga), domain(domain) {}
 
 Manga::Manga(sqlite3_stmt *stmt)
 {
@@ -22,7 +22,7 @@ Manga::~Manga()
 
 bool Manga::operator==(const Manga &other) const
 {
-  return id == other.id || (sourceId == other.sourceId && path == other.path);
+  return id == other.id || (domain == other.domain && path == other.path);
 }
 
 Json::Value Manga::toJson()
@@ -30,8 +30,8 @@ Json::Value Manga::toJson()
   Json::Value root {};
   if (id > 0)
     root["id"] = id;
-  if (!sourceId.empty())
-    root["sourceId"] = sourceId;
+  if (!domain.empty())
+    root["domain"] = domain;
   if (addedAt > 0)
     root["addedAt"] = addedAt;
   if (updatedAt > 0)
@@ -76,13 +76,13 @@ std::vector<std::shared_ptr<Chapter>> Manga::getChapters()
 ReadingStatus Manga::getReadState()
 {
   if (static_cast<int>(readingStatus) < 0)
-    readingStatus = getReadState(sourceId, path);
+    readingStatus = getReadState(domain, path);
   return readingStatus;
 }
 
 void Manga::setReadState(ReadingStatus status)
 {
-  updatedAt = setReadState(status, sourceId, path);
+  updatedAt = setReadState(status, domain, path);
 }
 
 void Manga::save()
@@ -90,7 +90,7 @@ void Manga::save()
   Utils::ExecTime execTime("Manga::save()");
   static constexpr const char *sql {
     "INSERT INTO manga ("
-    " source_id, path, cover_url,"
+    " domain, path, cover_url,"
     " title, description, status"
     ") VALUES (?, ?, ?, ?, ?, ?)",
   };
@@ -101,7 +101,7 @@ void Manga::save()
     int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
-    exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+    exit = sqlite3_bind_text(stmt, 1, domain.c_str(), -1, SQLITE_STATIC);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
@@ -136,7 +136,7 @@ void Manga::save()
     t.rollback();
     throw;
   }
-  Cache::manga.remove(sourceId + path);
+  Cache::manga.remove(domain + path);
 }
 
 void Manga::update()
@@ -203,18 +203,18 @@ void Manga::update()
 
 void Manga::remove()
 {
-  remove(sourceId, path);
+  remove(domain, path);
 }
 
-bool Manga::exists(const std::string &sourceId, const std::string &path)
+bool Manga::exists(const std::string &domain, const std::string &path)
 {
-  static constexpr const char *sql {"SELECT 1 FROM manga WHERE source_id = ? AND path = ?"};
+  static constexpr const char *sql {"SELECT 1 FROM manga WHERE domain = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  exit = sqlite3_bind_text(stmt, 1, domain.c_str(), -1, SQLITE_STATIC);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
   exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
@@ -228,15 +228,15 @@ bool Manga::exists(const std::string &sourceId, const std::string &path)
   return exit == SQLITE_ROW;
 }
 
-ReadingStatus Manga::getReadState(const std::string &sourceId, const std::string &path)
+ReadingStatus Manga::getReadState(const std::string &domain, const std::string &path)
 {
-  static constexpr const char *sql {"SELECT reading_status FROM manga WHERE source_id = ? AND path = ?"};
+  static constexpr const char *sql {"SELECT reading_status FROM manga WHERE domain = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  exit = sqlite3_bind_text(stmt, 1, domain.c_str(), -1, SQLITE_STATIC);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
   exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
@@ -251,15 +251,15 @@ ReadingStatus Manga::getReadState(const std::string &sourceId, const std::string
   return readingStatus;
 }
 
-std::shared_ptr<Manga> Manga::find(const std::string &sourceId, const std::string &path)
+std::shared_ptr<Manga> Manga::find(const std::string &domain, const std::string &path)
 {
-  static constexpr const char *sql {"SELECT * FROM manga WHERE source_id = ? AND path = ?"};
+  static constexpr const char *sql {"SELECT * FROM manga WHERE domain = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  exit = sqlite3_bind_text(stmt, 1, domain.c_str(), -1, SQLITE_STATIC);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
   exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
@@ -279,12 +279,12 @@ std::shared_ptr<Manga> Manga::find(const std::string &sourceId, const std::strin
   return manga;
 }
 
-int64_t Manga::setReadState(ReadingStatus status, const std::string &sourceId, const std::string &path)
+int64_t Manga::setReadState(ReadingStatus status, const std::string &domain, const std::string &path)
 {
-  Utils::ExecTime execTime("Manga::setReadState(status, sourceId, path, manga)");
+  Utils::ExecTime execTime("Manga::setReadState(status, domain, path, manga)");
   static constexpr const char *sql {
     "UPDATE manga SET reading_status = ?, updated_at = ?"
-    " WHERE source_id = ? AND path = ?",
+    " WHERE domain = ? AND path = ?",
   };
   sqlite3_stmt *stmt = nullptr;
   int64_t now {time(nullptr)};
@@ -300,7 +300,7 @@ int64_t Manga::setReadState(ReadingStatus status, const std::string &sourceId, c
     exit = sqlite3_bind_int64(stmt, 2, now);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
-    exit = sqlite3_bind_text(stmt, 3, sourceId.c_str(), -1, SQLITE_STATIC);
+    exit = sqlite3_bind_text(stmt, 3, domain.c_str(), -1, SQLITE_STATIC);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_bind_text(stmt, 4, path.c_str(), -1, SQLITE_STATIC);
@@ -317,10 +317,10 @@ int64_t Manga::setReadState(ReadingStatus status, const std::string &sourceId, c
   return now;
 }
 
-void Manga::remove(const std::string &sourceId, const std::string &path)
+void Manga::remove(const std::string &domain, const std::string &path)
 {
-  Utils::ExecTime execTime("Manga::remove(sourceId, path)");
-  static constexpr const char *sql {"DELETE FROM manga WHERE source_id = ? AND path = ?"};
+  Utils::ExecTime execTime("Manga::remove(domain, path)");
+  static constexpr const char *sql {"DELETE FROM manga WHERE domain = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   Database::Tx t;
@@ -328,7 +328,7 @@ void Manga::remove(const std::string &sourceId, const std::string &path)
     int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
-    exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+    exit = sqlite3_bind_text(stmt, 1, domain.c_str(), -1, SQLITE_STATIC);
     if (exit != SQLITE_OK)
       throw std::runtime_error(sqlite3_errmsg(Database::instance));
     exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
@@ -545,7 +545,7 @@ void Manga::deserialize(sqlite3_stmt *stmt)
     throw std::invalid_argument("stmt cannot be null");
 
   id = sqlite3_column_int64(stmt, 0);
-  sourceId = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+  domain = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
   addedAt = sqlite3_column_int64(stmt, 2);
   updatedAt = sqlite3_column_int64(stmt, 3);
   lastReadAt = sqlite3_column_int64(stmt, 4);

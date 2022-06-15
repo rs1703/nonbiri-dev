@@ -24,7 +24,7 @@ class Manga : public Manga_t
 {
 public:
   int64_t id {};
-  std::string sourceId {};
+  std::string domain {};
   int64_t addedAt {};
   int64_t updatedAt {};
   int64_t lastReadAt {};
@@ -35,7 +35,7 @@ public:
 
 public:
   Manga() = default;
-  Manga(const std::string &sourceId, const Manga_t &manga);
+  Manga(const std::string &domain, const Manga_t &manga);
   Manga(sqlite3_stmt *stmt);
   ~Manga();
 
@@ -50,11 +50,11 @@ public:
   void update();
   void remove();
 
-  static std::shared_ptr<Manga> find(const std::string &sourceId, const std::string &path);
-  static bool exists(const std::string &sourceId, const std::string &path);
-  static ReadingStatus getReadState(const std::string &sourceId, const std::string &path);
-  static int64_t setReadState(ReadingStatus status, const std::string &sourceId, const std::string &path);
-  static void remove(const std::string &sourceId, const std::string &path);
+  static std::shared_ptr<Manga> find(const std::string &domain, const std::string &path);
+  static bool exists(const std::string &domain, const std::string &path);
+  static ReadingStatus getReadState(const std::string &domain, const std::string &path);
+  static int64_t setReadState(ReadingStatus status, const std::string &domain, const std::string &path);
+  static void remove(const std::string &domain, const std::string &path);
 
 private:
   void loadArtists();

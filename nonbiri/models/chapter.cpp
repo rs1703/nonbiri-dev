@@ -5,12 +5,12 @@
 #include <nonbiri/models/chapter.h>
 #include <nonbiri/utility.h>
 
-Chapter::Chapter(const std::string &sourceId, const Chapter_t &chapter) : Chapter_t(chapter), sourceId(sourceId) {}
+Chapter::Chapter(const std::string &domain, const Chapter_t &chapter) : Chapter_t(chapter), domain(domain) {}
 
-Chapter::Chapter(int64_t mangaId, const std::string &sourceId, const Chapter_t &chapter) :
+Chapter::Chapter(int64_t mangaId, const std::string &domain, const Chapter_t &chapter) :
   Chapter_t(chapter),
   mangaId(mangaId),
-  sourceId(sourceId)
+  domain(domain)
 {
 }
 
@@ -26,7 +26,7 @@ Chapter::~Chapter()
 
 bool Chapter::operator==(const Chapter &other) const
 {
-  return id == other.id || (sourceId == other.sourceId && path == other.path);
+  return id == other.id || (domain == other.domain && path == other.path);
 }
 
 Json::Value Chapter::toJson()
@@ -36,8 +36,8 @@ Json::Value Chapter::toJson()
     root["id"] = id;
   if (mangaId > 0)
     root["mangaId"] = mangaId;
-  if (!sourceId.empty())
-    root["sourceId"] = sourceId;
+  if (!domain.empty())
+    root["domain"] = domain;
   if (addedAt > 0)
     root["addedAt"] = addedAt;
   if (updatedAt > 0)
@@ -74,7 +74,7 @@ void Chapter::save(int64_t mangaId)
 
   static constexpr const char *sql {
     "INSERT INTO chapter ("
-    " manga_id, source_id, published_at,"
+    " manga_id, domain, published_at,"
     " path, name, page_count"
     ") VALUES (?, ?, ?, ?, ?, ?)",
   };
@@ -86,7 +86,7 @@ void Chapter::save(int64_t mangaId)
   exit = sqlite3_bind_int64(stmt, 1, mangaId > 0 ? mangaId : this->mangaId);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 2, sourceId.c_str(), -1, SQLITE_STATIC);
+  exit = sqlite3_bind_text(stmt, 2, domain.c_str(), -1, SQLITE_STATIC);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
   exit = sqlite3_bind_int64(stmt, 3, publishedAt);
@@ -113,15 +113,15 @@ void Chapter::save(int64_t mangaId)
     this->mangaId = mangaId;
 }
 
-std::shared_ptr<Chapter> Chapter::find(std::string sourceId, std::string path)
+std::shared_ptr<Chapter> Chapter::find(std::string domain, std::string path)
 {
-  static constexpr const char *sql {"SELECT * FROM chapter WHERE source_id = ? AND path = ?"};
+  static constexpr const char *sql {"SELECT * FROM chapter WHERE domain = ? AND path = ?"};
   sqlite3_stmt *stmt = nullptr;
 
   int exit = sqlite3_prepare_v2(Database::instance, sql, -1, &stmt, nullptr);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
-  exit = sqlite3_bind_text(stmt, 1, sourceId.c_str(), -1, SQLITE_STATIC);
+  exit = sqlite3_bind_text(stmt, 1, domain.c_str(), -1, SQLITE_STATIC);
   if (exit != SQLITE_OK)
     throw std::runtime_error(sqlite3_errmsg(Database::instance));
   exit = sqlite3_bind_text(stmt, 2, path.c_str(), -1, SQLITE_STATIC);
@@ -184,7 +184,7 @@ void Chapter::deserialize(sqlite3_stmt *stmt)
 
   id = sqlite3_column_int64(stmt, 0);
   mangaId = sqlite3_column_int64(stmt, 1);
-  sourceId = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+  domain = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
   addedAt = sqlite3_column_int64(stmt, 3);
   updatedAt = sqlite3_column_int64(stmt, 4);
   publishedAt = sqlite3_column_int64(stmt, 5);

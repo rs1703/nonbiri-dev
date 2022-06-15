@@ -19,8 +19,6 @@
     ABORT(400, JSON_MISSING_PARAM(name), MIME_JSON); \
   }
 
-#define REQUIRE_EXTENSION_ID REQUIRE_PARAM(sourceId, "sourceId")
-
 using httplib::Request;
 using httplib::Response;
 
@@ -57,9 +55,9 @@ void Api::getExtensions(const Request &req, Response &res)
 
     if (req.matches[1].str() == "index" || isRefresh) {
       const auto &indexes = App::manager->getIndexes();
-      for (const auto &info : indexes) {
-        Json::Value json = info.second.toJson();
-        json["isInstalled"] = extensions.find(info.second.id) != extensions.end();
+      for (const auto &[domain, info] : indexes) {
+        Json::Value json = info.toJson();
+        json["isInstalled"] = extensions.find(domain) != extensions.end();
         root.append(json);
       }
     } else {
@@ -96,8 +94,8 @@ void Api::installExtension(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::installExtension");
   try {
-    REQUIRE_EXTENSION_ID;
-    App::manager->downloadExtension(sourceId, false);
+    REQUIRE_PARAM(domain, "domain");
+    App::manager->downloadExtension(domain, false);
     getExtensions(req, res);
   } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << std::endl;
@@ -109,8 +107,8 @@ void Api::uninstallExtension(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::uninstallExtension");
   try {
-    REQUIRE_EXTENSION_ID;
-    App::manager->removeExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    App::manager->removeExtension(domain);
     getExtensions(req, res);
   } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << std::endl;
@@ -122,8 +120,8 @@ void Api::updateExtension(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::updateExtension");
   try {
-    REQUIRE_EXTENSION_ID;
-    App::manager->updateExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    App::manager->updateExtension(domain);
     getExtensions(req, res);
   } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << std::endl;
@@ -135,8 +133,8 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
 {
   Utils::ExecTime execTime("Api::getExtensionFilters");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -160,8 +158,8 @@ void Api::getExtensionPrefs(const httplib::Request &req, httplib::Response &res)
 {
   Utils::ExecTime execTime("Api::getExtensionPrefs");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -183,8 +181,8 @@ void Api::setExtensionPrefs(const httplib::Request &req, httplib::Response &res)
 {
   Utils::ExecTime execTime("Api::setExtensionPrefs");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -232,13 +230,14 @@ void Api::getLatests(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::getLatests");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    REQUIRE_PARAM(sPage, "page");
+
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    REQUIRE_PARAM(sPage, "page");
     const int page = std::max(1, sPage.empty() ? 1 : std::stoi(sPage));
     const auto &[entries, hasNext] = App::manager->getLatests(*ext, page);
 
@@ -260,8 +259,8 @@ void Api::searchManga(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::searchManga");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
@@ -301,13 +300,14 @@ void Api::getManga(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::getManga");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    REQUIRE_PARAM(path, "path");
+
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    REQUIRE_PARAM(path, "path");
     const auto manga = App::manager->getManga(*ext, path);
 
     Json::Value root {};
@@ -326,13 +326,14 @@ void Api::getChapters(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::getChapters");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    REQUIRE_PARAM(path, "path");
+
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    REQUIRE_PARAM(path, "path");
     const auto chapters = App::manager->getChapters(*ext, path);
 
     Json::Value root {};
@@ -351,13 +352,14 @@ void Api::getPages(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::getPages");
   try {
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    REQUIRE_PARAM(domain, "domain");
+    REQUIRE_PARAM(path, "path");
+
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    REQUIRE_PARAM(path, "path");
     const auto pages = App::manager->getPages(*ext, path);
 
     Json::Value root {};
@@ -376,21 +378,21 @@ void Api::setMangaReadState(const Request &req, Response &res)
 {
   Utils::ExecTime execTime("Api::setMangaReadState");
   try {
+    REQUIRE_PARAM(domain, "domain");
+    REQUIRE_PARAM(path, "path");
     REQUIRE_PARAM(sState, "state");
-    ReadingStatus state = static_cast<ReadingStatus>(std::stoi(sState));
 
-    REQUIRE_EXTENSION_ID;
-    Extension *ext = App::manager->getExtension(sourceId);
+    Extension *ext = App::manager->getExtension(domain);
     if (ext == nullptr) {
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    REQUIRE_PARAM(path, "path");
     auto manga = App::manager->getManga(*ext, path);
     if (manga == nullptr) {
       ABORT(404, JSON_MANGA_NOT_FOUND, MIME_JSON);
     }
 
+    auto state = static_cast<ReadingStatus>(std::stoi(sState));
     if (manga->readingStatus == state) {
       res.status = 304;
       return;
