@@ -6,42 +6,31 @@ HunterGate(
   SHA1 "a3d7f4372b1dcd52faa6ff4a3bd5358e1d0e5efd"
   LOCAL)
 
-project(nonbiri-dev LANGUAGES C CXX)
+project(nonbiri LANGUAGES C CXX)
 include(FindPkgConfig)
 
 # Deps =======================================
 
-file(GLOB GUMBO_QUERY_SOURCES libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
-file(GLOB CORE_SOURCES libs/nonbiri-core-dev/core/*.cpp libs/nonbiri-core-dev/core/*/*.cpp)
-
-set(DEPS
-  ${GUMBO_QUERY_SOURCES}
-  ${CORE_SOURCES})
+file(GLOB CORE_SOURCES
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/*.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/*/*.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
+set(DEPS ${CORE_SOURCES})
 
 include_directories(
   ${CMAKE_CURRENT_LIST_DIR}
-  libs/nonbiri-core-dev/libs
-  libs/nonbiri-core-dev)
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev)
 
 # Main =======================================
 
-file(GLOB MAIN_SOURCES nonbiri/*.cpp nonbiri/*/*.cpp libs/cpp-httplib/httplib.h)
+file(GLOB MAIN_SOURCES 
+  ${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/*.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/*/*.cpp)
+
 add_executable(${PROJECT_NAME} ${DEPS} ${MAIN_SOURCES})
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
-
-# Indexer ====================================
-
-file(GLOB INDEX_SOURCES
-  nonbiri/models/*.cpp
-  nonbiri/cache.cpp
-  nonbiri/database.cpp
-  nonbiri/lru.cpp
-  nonbiri/manager.cpp
-  nonbiri/utility.cpp
-  indexer/*.cpp)
-add_executable(index ${DEPS} ${INDEX_SOURCES})
-target_compile_features(index PRIVATE cxx_std_20)
 
 # Packages ===================================
 
@@ -98,10 +87,16 @@ else()
   set(LIBRARIES ${LIBRARIES} gumbo::gumbo)
 endif()
 
+if(WIN32)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBRARIES})
-target_link_libraries(index PRIVATE ${LIBRARIES})
-
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy
-    "${CMAKE_CURRENT_LIST_DIR}/nonbiri/schema.sql"
-    "${CMAKE_CURRENT_BINARY_DIR}/nonbiri.sql")
+    "${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/schema.sql"
+    "${CMAKE_CURRENT_BINARY_DIR}/Release/${PROJECT_NAME}.sql")
+else()
+target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBRARIES} -ldl)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy
+    "${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/schema.sql"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.sql")
+endif()
