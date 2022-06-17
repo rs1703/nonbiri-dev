@@ -152,16 +152,13 @@ void Manager::downloadExtension(const std::string &domain, bool update)
   if (info == nullptr)
     throw std::runtime_error("Extension not found");
 
-  const std::string sourceName {info->language + "." + info->domain + "-v" + info->version};
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-  const std::string localName {domain + ".dll"};
-  const std::string url {dataBaseUrl + "/windows/" + sourceName + ".dll"};
+  const std::string fileName {domain + ".dll"};
 #else
-  const std::string localName {domain + ".so"};
-  const std::string url {dataBaseUrl + "/linux/" + sourceName + ".so"};
+  const std::string fileName {domain + ".so"};
 #endif
 
-  const auto path = (fs::path(extensionsDir) / localName).string();
+  const auto path = (fs::path(extensionsDir) / fileName).string();
   if (fs::exists(path)) {
     if (!update)
       throw std::runtime_error("Extension already installed");
@@ -169,7 +166,7 @@ void Manager::downloadExtension(const std::string &domain, bool update)
   }
 
   std::cout << "Downloading " << info->name << "..." << std::endl;
-  int code = Http::download(url, path);
+  int code = Http::download(dataBaseUrl + "/" + info->path, path);
   if (code != 200)
     throw std::runtime_error("Unable to download extension");
 
@@ -183,7 +180,8 @@ void Manager::removeExtension(const std::string &domain, fs::path path)
 
   try {
     unloadExtension(domain);
-  } catch (...) {
+  } catch (const std::exception &e) {
+    std::cerr << "Error unloading extension: " << e.what() << std::endl;
   }
 
   if (path.empty()) {
@@ -233,14 +231,13 @@ void Manager::updateExtensionIndexes()
 
   for (const auto &domain : root.getMemberNames()) {
     const auto &json = root[domain];
-    ExtensionInfo info {
-      .domain = domain,
-      .baseUrl = json["baseUrl"].asString(),
-      .name = json["name"].asString(),
-      .language = json["language"].asString(),
-      .version = json["version"].asString(),
-      .isNsfw = json["isNsfw"].asBool(),
-    };
+    ExtensionInfo info {};
+    info.domain = domain;
+    info.name = json["name"].asString();
+    info.language = json["language"].asString();
+    info.version = json["version"].asString();
+    info.isNsfw = json["isNsfw"].asBool();
+    info.path = json["path"].asString();
     indexes.emplace(domain, info);
 
     auto ext = getExtension(domain);
