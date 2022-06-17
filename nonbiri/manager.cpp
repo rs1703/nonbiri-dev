@@ -197,6 +197,14 @@ void Manager::removeExtension(const std::string &domain, fs::path path)
     fs::remove(path);
 }
 
+int Manager::downloadIcon(const std::string &fileName, const std::string &outputPath)
+{
+  if (!fs::exists("icons"))
+    fs::create_directory("icons");
+  const std::string url = dataBaseUrl + "/icons/" + fileName;
+  return Http::download(url, outputPath);
+}
+
 void Manager::updateExtension(const std::string &domain)
 {
   downloadExtension(domain, true);

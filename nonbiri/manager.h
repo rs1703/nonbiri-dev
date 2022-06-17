@@ -44,6 +44,7 @@ public:
 
   void downloadExtension(const std::string &domain, bool update = false);
   void removeExtension(const std::string &domain, std::filesystem::path path = "");
+  int downloadIcon(const std::string &fileName, const std::string &outputPath);
 
   void updateExtension(const std::string &domain);
   void updateExtensionIndexes();
