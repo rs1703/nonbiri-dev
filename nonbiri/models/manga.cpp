@@ -83,6 +83,7 @@ ReadingStatus Manga::getReadState()
 void Manga::setReadState(ReadingStatus status)
 {
   updatedAt = setReadState(status, domain, path);
+  readingStatus = status;
 }
 
 void Manga::save()
