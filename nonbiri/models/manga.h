@@ -13,6 +13,7 @@ enum class ReadingStatus
 {
   None,
   Reading,
+  Finished,
   Planned,
   OnHold,
   Dropped
