@@ -242,6 +242,7 @@ void Manager::updateExtensionIndexes()
     ExtensionInfo info {};
     info.domain = domain;
     info.name = json["name"].asString();
+    info.description = json["description"].asString();
     info.language = json["language"].asString();
     info.version = json["version"].asString();
     info.isNsfw = json["isNsfw"].asBool();
