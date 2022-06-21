@@ -5,7 +5,8 @@
 #include <string>
 #include <vector>
 
-#include <core/pref.h>
+#include <core/filters.h>
+#include <core/prefs.h>
 #include <json/json.h>
 #include <nonbiri/controllers/api.h>
 #include <nonbiri/controllers/macro.h>
@@ -64,7 +65,7 @@ void Api::getExtensions(const Request &req, Response &res)
       for (const auto &ext : extensions) {
         Json::Value json = ext.second->toJson();
         json["hasUpdate"] = ext.second->hasUpdate.load();
-        json["hasPrefs"] = dynamic_cast<Pref::Prefs *>(ext.second) != nullptr;
+        json["hasPrefs"] = dynamic_cast<const Prefs *>(ext.second) != nullptr;
         root.append(json);
       }
     }
@@ -139,12 +140,18 @@ void Api::getExtensionFilters(const httplib::Request &req, httplib::Response &re
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    const auto &filters = ext->getFilters();
+    auto filters = dynamic_cast<const Filters *>(ext);
+    if (filters == nullptr) {
+      ABORT(404, JSON_ERROR("Extension does not support filters"), MIME_JSON);
+    }
 
     Json::Value root {};
-    for (const auto &filter : filters)
-      if (!filter->hidden)
-        root.append(filter->toJson());
+    if (filters != nullptr) {
+      for (const auto &filter : filters->list()) {
+        if (dynamic_cast<const Filter::Hidden *>(filter.get()) == nullptr)
+          root.append(filter->toJson());
+      }
+    }
 
     Json::FastWriter writer {};
     REPLY(200, root.empty() ? "[]" : writer.write(root), MIME_JSON);
@@ -164,13 +171,13 @@ void Api::getExtensionPrefs(const httplib::Request &req, httplib::Response &res)
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    const auto *prefs = dynamic_cast<Pref::Prefs *>(ext);
+    auto prefs = dynamic_cast<const Prefs *>(ext);
     if (prefs == nullptr) {
-      ABORT(404, JSON_ERROR("Extension does not have prefs"), MIME_JSON);
+      ABORT(404, JSON_ERROR("Extension does not support preferences"), MIME_JSON);
     }
 
     Json::FastWriter writer {};
-    REPLY(200, writer.write(prefs->toJson(true)), MIME_JSON);
+    REPLY(200, writer.write(prefs->toJson()), MIME_JSON);
   } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << std::endl;
     REPLY(500, JSON_EXCEPTION, MIME_JSON);
@@ -187,9 +194,9 @@ void Api::setExtensionPrefs(const httplib::Request &req, httplib::Response &res)
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
-    auto *prefs = dynamic_cast<Pref::Prefs *>(ext);
+    auto prefs = dynamic_cast<Prefs *>(ext);
     if (prefs == nullptr) {
-      ABORT(404, JSON_ERROR("Extension does not have prefs"), MIME_JSON);
+      ABORT(404, JSON_ERROR("Extension does not support preferences"), MIME_JSON);
     }
 
     Json::Reader reader {};
@@ -198,25 +205,10 @@ void Api::setExtensionPrefs(const httplib::Request &req, httplib::Response &res)
       ABORT(400, JSON_ERROR("Unable to parse payload"), MIME_JSON);
     }
 
-    std::vector<std::string> invalidKeys {};
-    for (const auto &obj : payload) {
-      if (!obj.isObject() || !obj.isMember("key") || !obj.isMember("value")) {
-        ABORT(400, JSON_ERROR("Payload must be an array of objects, each with a key and value"), MIME_JSON);
-      }
-
-      const std::string key = obj["key"].asString();
-      if (prefs->set(key, obj["value"]) < 0)
-        invalidKeys.push_back(key);
-    }
+    prefs->update(payload);
 
     Json::Value root {};
     root["new"] = prefs->toJson();
-
-    if (!invalidKeys.empty()) {
-      root["error"] = "Payload contains invalid keys";
-      for (const auto &key : invalidKeys)
-        root["keys"].append(key);
-    }
 
     Json::FastWriter writer {};
     REPLY(200, writer.write(root), MIME_JSON);
@@ -265,17 +257,22 @@ void Api::searchManga(const Request &req, Response &res)
       ABORT(404, JSON_EXTENSION_NOT_FOUND, MIME_JSON);
     }
 
+    auto filters = dynamic_cast<const Filters *>(ext);
+    if (filters == nullptr) {
+      ABORT(404, JSON_ERROR("Extension does not support filters"), MIME_JSON);
+    }
+
     int page {1};
     std::string query {};
     std::vector<std::pair<std::string, std::string>> pairs {};
 
-    const auto &filtersIndex = ext->getFiltersIndex();
+    const auto &index = filters->index();
     for (const auto &[key, value] : req.params) {
       if (key == "page") {
         page = std::max(1, std::stoi(value));
       } else if (key == "q") {
         query = value;
-      } else if (filtersIndex.find(key) != filtersIndex.end()) {
+      } else if (index.find(key) != index.end()) {
         pairs.push_back({key, value});
       }
     }
