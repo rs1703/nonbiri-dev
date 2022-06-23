@@ -9,31 +9,6 @@ HunterGate(
 project(nonbiri LANGUAGES C CXX)
 include(FindPkgConfig)
 
-# Deps =======================================
-
-file(GLOB CORE_SOURCES
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/*.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/*/*.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
-set(DEPS ${CORE_SOURCES})
-
-include_directories(
-  ${CMAKE_CURRENT_LIST_DIR}
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs
-  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev)
-
-# Main =======================================
-
-file(GLOB MAIN_SOURCES 
-  ${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/*.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/*/*.cpp)
-
-add_executable(${PROJECT_NAME} ${DEPS} ${MAIN_SOURCES})
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
-
-# Packages ===================================
-
 add_definitions(-DCURL_STATICLIB)
 pkg_check_modules(CURL libcurl)
 if(CURL_FOUND)
@@ -86,6 +61,25 @@ else()
 
   set(LIBRARIES ${LIBRARIES} gumbo::gumbo)
 endif()
+
+file(GLOB CORE_SOURCES
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/*.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/core/*/*.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs/gumbo-query/src/*.cpp)
+set(DEPS ${CORE_SOURCES})
+
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev/libs
+  ${CMAKE_CURRENT_LIST_DIR}/libs/nonbiri-core-dev)
+
+file(GLOB MAIN_SOURCES 
+  ${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/*.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}/*/*.cpp)
+
+add_executable(${PROJECT_NAME} ${DEPS} ${MAIN_SOURCES})
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+target_include_directories(${PROJECT_NAME} PRIVATE libs/cpp-httplib)
 
 if(WIN32)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBRARIES})
